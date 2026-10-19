@@ -1021,43 +1021,83 @@ export default function VirtualOffice() {
       {/* 3D WEBGL VIEWPORT */}
       <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
 
-      {/* TOP HEADER: BRAND, STATUS, ZONE */}
-      <header className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
+      {/* TOP HEADER: BRAND, WORK CYCLE HUD & ACTIONS */}
+      <header className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20">
         {!isCleanUIMode ? (
-          <div className="flex items-center gap-3 bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-cyan-500/25 text-white">
+          <div className="flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-base shadow-lg shadow-cyan-500/25 text-white">
               E
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold tracking-tight text-white">EKALAYA 3D OFFICE</h1>
-                <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <Wifi className="w-3 h-3 animate-pulse" />
-                  LIVE SYNC
+                <h1 className="text-xs font-bold tracking-tight text-white">EKALAYA 3D OFFICE</h1>
+                <span className="flex items-center gap-1 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Wifi className="w-2.5 h-2.5 animate-pulse" />
+                  LIVE
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                <Compass className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <Compass className="w-3 h-3 text-cyan-400" />
                 <span>Zona: <strong className="text-cyan-300">{currentZone}</strong></span>
               </div>
             </div>
           </div>
         ) : <div />}
 
+        {/* WORK CYCLE HUD (TENGAH HEADER - RAPI & TERPADU) */}
+        {!isCleanUIMode && (
+          <div className="order-3 md:order-2 mx-auto pointer-events-auto max-w-[94vw]">
+            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-cyan-500/40 shadow-xl text-xs">
+              <span className="text-sm select-none">{currentPhase.icon}</span>
+              <div className="text-left flex items-center gap-2">
+                <span className="font-bold text-white tracking-wide truncate max-w-[150px] sm:max-w-xs text-xs">
+                  {currentPhase.title}
+                </span>
+                <span className="text-[10px] bg-cyan-950/90 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded-md font-mono flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '6s' }} />
+                  {cycleTimer}s
+                </span>
+              </div>
+
+              {/* Kontrol Siklus */}
+              <div className="flex items-center gap-1 pl-1 border-l border-slate-700/80">
+                <button
+                  onClick={() => setIsCycleAutoPlaying(!isCycleAutoPlaying)}
+                  className={`p-1 rounded-lg border transition-all ${
+                    isCycleAutoPlaying
+                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30"
+                      : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                  }`}
+                  title={isCycleAutoPlaying ? "Jeda Siklus" : "Jalankan Siklus"}
+                >
+                  {isCycleAutoPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                </button>
+                <button
+                  onClick={() => advanceToPhase(currentPhaseIndex + 1)}
+                  className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 transition-all active:scale-95"
+                  title="Lanjut Fase Berikutnya"
+                >
+                  <SkipForward className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TOP RIGHT: CONTROLS & WORKSPACE INFO */}
-        <div className="flex items-center gap-1.5 md:gap-2.5 pointer-events-auto">
-          {/* TOGGLE CLEAN UI (Sembunyikan semua UI kecuali kontrol gerak & emote) */}
+        <div className="order-2 md:order-3 flex items-center gap-1.5 pointer-events-auto ml-auto">
+          {/* TOGGLE CLEAN UI */}
           <button
             onClick={() => setIsCleanUIMode(!isCleanUIMode)}
-            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95 ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95 ${
               isCleanUIMode
                 ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
                 : "bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60"
             }`}
-            title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Gerak & Emote)"}
+            title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
           >
-            {isCleanUIMode ? <Eye className="w-4 h-4 text-white" /> : <EyeOff className="w-4 h-4 text-cyan-400" />}
-            <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan UI" : "Sembunyikan UI"}</span>
+            {isCleanUIMode ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-cyan-400" />}
+            <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
           </button>
 
           {!isCleanUIMode && (
@@ -1065,39 +1105,37 @@ export default function VirtualOffice() {
               {/* TOMBOL MASUK / KELUAR DARI KANTOR */}
               <button
                 onClick={toggleOfficePresence}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl backdrop-blur-md text-xs font-bold transition-all shadow-lg active:scale-95 border ${
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl backdrop-blur-md text-xs font-bold transition-all shadow-md active:scale-95 border ${
                   isInOffice
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30 shadow-rose-500/20"
-                    : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35 shadow-emerald-500/20 animate-pulse"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
+                    : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
                 }`}
-                title={isInOffice ? "Keluar dari Kantor (Check-out)" : "Masuk ke Dalam Kantor (Check-in)"}
+                title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
               >
-                {isInOffice ? <LogOut className="w-4 h-4 text-rose-400" /> : <LogIn className="w-4 h-4 text-emerald-400" />}
-                <span>{isInOffice ? "Keluar Kantor" : "Masuk Kantor"}</span>
+                {isInOffice ? <LogOut className="w-3.5 h-3.5 text-rose-400" /> : <LogIn className="w-3.5 h-3.5 text-emerald-400" />}
+                <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk Avatar"}</span>
               </button>
 
-              {/* FULLSCREEN TOGGLE (Menghilangkan URL bar) */}
+              {/* FULLSCREEN TOGGLE */}
               <button
                 onClick={toggleFullscreen}
-                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-                title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh (Fullscreen)"}
+                className="flex items-center gap-1 p-2 md:px-2.5 md:py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
+                title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
               >
-                {isFullscreen ? <Minimize className="w-4 h-4 text-emerald-400" /> : <Maximize className="w-4 h-4 text-cyan-400" />}
-                <span className="hidden sm:inline">{isFullscreen ? "Normal" : "Fullscreen"}</span>
+                {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-emerald-400" /> : <Maximize className="w-3.5 h-3.5 text-cyan-400" />}
               </button>
 
               {/* DAY / NIGHT MODE TOGGLE */}
               <button
                 onClick={() => setIsDayMode(!isDayMode)}
-                className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95 ${
+                className={`p-2 md:px-2.5 md:py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95 ${
                   isDayMode
                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
                     : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
                 }`}
-                title={isDayMode ? "Ubah ke Mode Malam" : "Ubah ke Mode Siang"}
+                title={isDayMode ? "Mode Malam" : "Mode Siang"}
               >
-                {isDayMode ? <Sun className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-4 h-4 text-cyan-300" />}
-                <span className="hidden sm:inline">{isDayMode ? "Siang" : "Malam"}</span>
+                {isDayMode ? <Sun className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3.5 h-3.5 text-cyan-300" />}
               </button>
 
               {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
@@ -1107,135 +1145,58 @@ export default function VirtualOffice() {
                   else if (zoomLevel === 1.5) setZoomLevel(0.7);
                   else setZoomLevel(1);
                 }}
-                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-                title="Ubah Jarak Pandang (Lebar / Normal / Dekat)"
+                className="flex items-center gap-1 p-2 md:px-2.5 md:py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
+                title="Jarak Pandang (Luas / Dekat / Normal)"
               >
-                <Maximize2 className="w-4 h-4 text-cyan-400" />
-                <span className="hidden sm:inline">
-                  {zoomLevel === 1.5 ? "Pandangan: Luas" : zoomLevel === 0.7 ? "Pandangan: Dekat" : "Pandangan: Normal"}
-                </span>
-                <span className="sm:hidden text-[10px] text-cyan-300 font-mono">
-                  {zoomLevel === 1.5 ? "Wide" : zoomLevel === 0.7 ? "Close" : "1x"}
+                <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden md:inline">
+                  {zoomLevel === 1.5 ? "Luas" : zoomLevel === 0.7 ? "Dekat" : "Normal"}
                 </span>
               </button>
 
-              <button
-                onClick={handleCopyInvite}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-                title="Salin link undangan untuk rekan tim"
-              >
-                {inviteCopied ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="text-emerald-400">Tersalin!</span>
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="w-4 h-4 text-cyan-400" />
-                    <span>Undang</span>
-                  </>
-                )}
-              </button>
-
+              {/* DAFTAR ANGGOTA */}
               <button
                 onClick={() => setIsMemberListOpen(!isMemberListOpen)}
-                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
               >
-                <Users className="w-4 h-4 text-cyan-400" />
-                <span className="hidden sm:inline">Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
-                <span className="sm:hidden text-xs">{INITIAL_BOTS.length + 1 + connectedPeersCount}</span>
+                <Users className="w-3.5 h-3.5 text-cyan-400" />
+                <span>({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
               </button>
 
               <button
                 onClick={() => setIsHelpOpen(true)}
-                className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-lg active:scale-95"
-                title="Panduan Kontrol & Informasi"
+                className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-md active:scale-95"
+                title="Panduan Kontrol"
               >
-                <HelpCircle className="w-4 h-4" />
+                <HelpCircle className="w-3.5 h-3.5" />
               </button>
             </>
           )}
         </div>
       </header>
 
-      {/* TOP FLOATING BAR: SIKLUS KEGIATAN KANTOR (WORK CYCLE HUD) */}
-      {!isCleanUIMode && (
-        <div className="absolute top-16 md:top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[92vw] animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-xl px-3.5 py-2 rounded-2xl border border-cyan-500/40 shadow-2xl text-xs">
-            <span className="text-base select-none">{currentPhase.icon}</span>
-            <div className="text-left">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-white tracking-wide truncate max-w-[180px] sm:max-w-none">
-                  {currentPhase.title}
-                </span>
-                <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded-md font-mono flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '6s' }} />
-                  {cycleTimer}s
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 hidden sm:block truncate max-w-sm">
-                {currentPhase.description}
-              </p>
-            </div>
-
-            {/* Kontrol Siklus: Play/Pause & Next Phase */}
-            <div className="flex items-center gap-1 pl-1 border-l border-slate-700/80">
-              <button
-                onClick={() => setIsCycleAutoPlaying(!isCycleAutoPlaying)}
-                className={`p-1.5 rounded-lg border transition-all ${
-                  isCycleAutoPlaying
-                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30"
-                    : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
-                }`}
-                title={isCycleAutoPlaying ? "Jeda Siklus Otomatis" : "Jalankan Siklus Otomatis"}
-              >
-                {isCycleAutoPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              </button>
-              <button
-                onClick={() => advanceToPhase(currentPhaseIndex + 1)}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 transition-all active:scale-95"
-                title="Lanjut ke Siklus Kegiatan Berikutnya"
-              >
-                <SkipForward className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* BANNER STATUS MODE PENGAWAS (OWNER SPECTATOR / CCTV MODE) */}
+      {/* BANNER STATUS MODE PENGAWAS (HANYA MUNCUL DI POJOK KANAN BAWAH SECARA MINIMALIS & TIDAK MENUTUPI AREA TENGAH) */}
       {!isInOffice && !isCleanUIMode && (
-        <div className="absolute top-28 md:top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto bg-slate-900/95 border border-cyan-500/40 text-slate-200 px-4 py-2.5 rounded-2xl backdrop-blur-xl flex items-center gap-3 text-xs shadow-2xl animate-in zoom-in-95">
-          <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-sm">
-            📡
-          </div>
-          <div>
-            <p className="font-bold text-cyan-300">Mode Pengawas Kantor Aktif (Owner Observasi)</p>
-            <p className="text-[10px] text-slate-400">Avatar dinonaktifkan. 4 Pegawai bergerak mandiri secara dinamis dengan algoritma sekejul.</p>
-          </div>
-          <button
-            onClick={toggleOfficePresence}
-            className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-200 font-semibold text-[11px] transition-all"
-          >
-            Masuk Sebagai Avatar
-          </button>
+        <div className="absolute top-20 right-3 z-10 pointer-events-auto bg-slate-900/90 border border-cyan-500/30 text-slate-200 px-3 py-1.5 rounded-xl backdrop-blur-md flex items-center gap-2 text-[11px] shadow-lg animate-in fade-in">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+          <span className="text-cyan-300 font-medium">Mode Kamera CCTV Aktif</span>
         </div>
       )}
 
-      {/* SPATIAL PROXIMITY RADAR / NEARBY PEERS */}
-      {peersNearby.length > 0 && (
+      {/* SPATIAL PROXIMITY RADAR / PEERS (DILETAKKAN DI KIRI ATAS SECARA RAPI TANPA MENUTUP HEADER) */}
+      {peersNearby.length > 0 && isInOffice && (
         <div className="absolute top-20 left-4 z-10 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-cyan-500/30 shadow-2xl max-w-xs text-xs">
-            <div className="flex items-center gap-2 font-semibold text-cyan-400 mb-2">
-              <Volume2 className="w-4 h-4 animate-pulse" />
-              <span>Audio Spasial Aktif ({peersNearby.length} di dekat Anda)</span>
+          <div className="bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-cyan-500/30 shadow-xl max-w-xs text-xs">
+            <div className="flex items-center gap-2 font-semibold text-cyan-400 mb-1.5">
+              <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+              <span>Audio Spasial ({peersNearby.length} di dekat Anda)</span>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {peersNearby.map((peer) => (
-                <div key={peer.id} className="flex items-center justify-between bg-slate-800/60 px-2.5 py-1.5 rounded-lg border border-slate-700/40">
-                  <span className="text-slate-200 font-medium truncate max-w-[140px]">{peer.name}</span>
-                  <span className="text-[10px] text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">
-                    {peer.distance}m (Terdengar Jelas)
+                <div key={peer.id} className="flex items-center justify-between bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-700/40">
+                  <span className="text-slate-200 font-medium truncate max-w-[130px]">{peer.name}</span>
+                  <span className="text-[9px] text-cyan-300 bg-cyan-950/60 px-1 py-0.5 rounded border border-cyan-800/40">
+                    {peer.distance}m
                   </span>
                 </div>
               ))}
@@ -1244,11 +1205,11 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* SCREEN SHARE / PRESENTATION MODE NOTIFICATION */}
+      {/* SCREEN SHARE NOTIFICATION */}
       {activeScreenShare && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-auto bg-blue-950/90 border border-blue-500/50 text-blue-200 px-4 py-2 rounded-xl backdrop-blur-md flex items-center gap-3 text-xs shadow-2xl">
-          <Monitor className="w-4 h-4 text-cyan-400 animate-pulse" />
-          <span>Anda sedang berbagi layar ke proyektor di <strong>Executive Meeting Room</strong></span>
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-auto bg-blue-950/90 border border-blue-500/50 text-blue-200 px-3 py-1.5 rounded-xl backdrop-blur-md flex items-center gap-2 text-xs shadow-xl">
+          <Monitor className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+          <span>Berbagi layar ke proyektor di Meeting Room</span>
           <button
             onClick={() => setActiveScreenShare(false)}
             className="ml-2 text-rose-400 hover:text-rose-300 font-semibold underline"
@@ -1620,9 +1581,9 @@ export default function VirtualOffice() {
         )}
       </div>
 
-      {/* CHAT DRAWER */}
+      {/* CHAT DRAWER (Diletakkan di Kanan Bawah atau Kiri secara rapi, tanpa menutupi dock tengah) */}
       {!isCleanUIMode && isChatOpen && (
-        <div className="absolute bottom-16 md:bottom-24 left-3 right-3 md:right-auto md:left-4 z-20 md:w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-3.5 md:p-4 shadow-2xl flex flex-col h-64 md:h-80 transition-all animate-in fade-in slide-in-from-bottom-4">
+        <div className="absolute bottom-16 md:bottom-20 right-3 md:right-4 z-20 w-[92vw] sm:w-80 md:w-88 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-3.5 shadow-2xl flex flex-col h-60 md:h-72 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5 text-cyan-400">
               <MessageSquare className="w-3.5 h-3.5" />
