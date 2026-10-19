@@ -616,7 +616,7 @@ export default function VirtualOffice() {
     window.addEventListener("keyup", handleKeyUp);
 
     // 360-DEGREE TOUCH / MOUSE CAMERA ROTATION & 3D OBJECT RAYCASTING
-    const pointerStartPos = useRef({ x: 0, y: 0, time: 0 });
+    const pointerStartPos = { x: 0, y: 0, time: 0 };
     const raycaster = new THREE.Raycaster();
     const mouseCoord = new THREE.Vector2();
 
@@ -632,7 +632,9 @@ export default function VirtualOffice() {
       }
       isDraggingCamera.current = true;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
-      pointerStartPos.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+      pointerStartPos.x = e.clientX;
+      pointerStartPos.y = e.clientY;
+      pointerStartPos.time = Date.now();
       try {
         if (e.target.setPointerCapture) {
           e.target.setPointerCapture(e.pointerId);
@@ -666,10 +668,10 @@ export default function VirtualOffice() {
 
       // Deteksi Klik (Bukan Drag): jika pergerakan kursor < 8px dan durasi < 300ms
       const movedDist = Math.hypot(
-        e.clientX - pointerStartPos.current.x,
-        e.clientY - pointerStartPos.current.y
+        e.clientX - pointerStartPos.x,
+        e.clientY - pointerStartPos.y
       );
-      const tapDuration = Date.now() - pointerStartPos.current.time;
+      const tapDuration = Date.now() - pointerStartPos.time;
 
       if (movedDist < 8 && tapDuration < 350 && sceneRef.current && cameraRef.current) {
         const rect = container.getBoundingClientRect();
