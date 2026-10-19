@@ -61,8 +61,21 @@ export default function VirtualOffice() {
 
   // 24-HOUR SIMULATION ENGINE STATE
   const simulationEngineRef = useRef(null);
-  const [simulatedTimeStr, setSimulatedTimeStr] = useState("08:30");
-  const [isTimeAccelerated, setIsTimeAccelerated] = useState(false); // false = Realtime, true = 1 hari = 10 menit
+  const [simulatedTimeStr, setSimulatedTimeStr] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("ekalaya_sim_minutes");
+      if (stored) return minutesToTimeString(parseFloat(stored));
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    }
+    return "08:30";
+  });
+  const [isTimeAccelerated, setIsTimeAccelerated] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ekalaya_sim_accelerated") === "true";
+    }
+    return false;
+  });
   const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
   const [npcListState, setNpcListState] = useState([]);
 
@@ -228,13 +241,26 @@ export default function VirtualOffice() {
   const toggleTimeSpeed = () => {
     const nextAcc = !isTimeAccelerated;
     setIsTimeAccelerated(nextAcc);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("ekalaya_sim_accelerated", nextAcc ? "true" : "false");
+        if (!nextAcc) {
+          // Jika kembali ke realtime, reset sim_minutes agar sinkron dengan jam nyata komputer
+          localStorage.removeItem("ekalaya_sim_minutes");
+        }
+      } catch (e) {}
+    }
     if (simulationEngineRef.current) {
       simulationEngineRef.current.isAccelerated = nextAcc;
+      if (!nextAcc) {
+        const now = new Date();
+        simulationEngineRef.current.simulatedMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      }
     }
     addSystemMessage(
       nextAcc
         ? "⚡ Mode Dipercepat Aktif: 1 Hari = 10 Menit (Cocok untuk uji siklus penuh)"
-        : "🕒 Mode Waktu Nyata (Realtime 24 Jam) Aktif: Jam sinkron dengan waktu nyata"
+        : "🕒 Mode Waktu Nyata (Realtime 24 Jam) Aktif: Jam sinkron dengan jam komputer saat ini"
     );
   };
 
@@ -242,6 +268,11 @@ export default function VirtualOffice() {
   const skipOneHour = () => {
     if (simulationEngineRef.current) {
       simulationEngineRef.current.simulatedMinutes = (simulationEngineRef.current.simulatedMinutes + 60) % 1440;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("ekalaya_sim_minutes", simulationEngineRef.current.simulatedMinutes.toString());
+        } catch (e) {}
+      }
       setSimulatedTimeStr(minutesToTimeString(simulationEngineRef.current.simulatedMinutes));
       addSystemMessage(`⏩ Waktu dimajukan 1 jam ke pukul ${minutesToTimeString(simulationEngineRef.current.simulatedMinutes)}`);
     }
