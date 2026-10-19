@@ -171,6 +171,16 @@ export default function VirtualOffice() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
 
+  // INTERACTIVE 3D OBJECTS STATE
+  const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
+  const [interactionToast, setInteractionToast] = useState(null); // { title, desc, icon }
+  const [meetingNotes, setMeetingNotes] = useState([
+    "🎯 Sprint Q4: Target peluncuran modul kantor virtual interaktif",
+    "☕ Pantry: Stok biji kopi Arabica sudah diisi ulang",
+    "👥 Standup jam 16:00 WIB di Executive Room"
+  ]);
+  const [newNoteInput, setNewNoteInput] = useState("");
+
   // 3D Scene Refs
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -605,7 +615,11 @@ export default function VirtualOffice() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
-    // 360-DEGREE TOUCH / MOUSE CAMERA ROTATION (OPTIMIZED FOR SMARTPHONE & DESKTOP)
+    // 360-DEGREE TOUCH / MOUSE CAMERA ROTATION & 3D OBJECT RAYCASTING
+    const pointerStartPos = useRef({ x: 0, y: 0, time: 0 });
+    const raycaster = new THREE.Raycaster();
+    const mouseCoord = new THREE.Vector2();
+
     const handlePointerDown = (e) => {
       // Don't drag camera if interacting with clickable UI buttons, inputs or modals
       if (
@@ -618,6 +632,7 @@ export default function VirtualOffice() {
       }
       isDraggingCamera.current = true;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
+      pointerStartPos.current = { x: e.clientX, y: e.clientY, time: Date.now() };
       try {
         if (e.target.setPointerCapture) {
           e.target.setPointerCapture(e.pointerId);
@@ -648,6 +663,129 @@ export default function VirtualOffice() {
           e.target.releasePointerCapture(e.pointerId);
         }
       } catch (err) {}
+
+      // Deteksi Klik (Bukan Drag): jika pergerakan kursor < 8px dan durasi < 300ms
+      const movedDist = Math.hypot(
+        e.clientX - pointerStartPos.current.x,
+        e.clientY - pointerStartPos.current.y
+      );
+      const tapDuration = Date.now() - pointerStartPos.current.time;
+
+      if (movedDist < 8 && tapDuration < 350 && sceneRef.current && cameraRef.current) {
+        const rect = container.getBoundingClientRect();
+        mouseCoord.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouseCoord.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouseCoord, cameraRef.current);
+        const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
+
+        if (intersects.length > 0) {
+          // Cari objek interaktif dari target yang diklik ke atas hirarki
+          let targetObj = null;
+          for (const hit of intersects) {
+            let curr = hit.object;
+            while (curr && curr !== sceneRef.current) {
+              if (curr.userData && (curr.userData.isInteractive || curr.userData.id)) {
+                targetObj = curr;
+                break;
+              }
+              curr = curr.parent;
+            }
+            if (targetObj) break;
+          }
+
+          if (targetObj) {
+            const data = targetObj.userData;
+
+            // 1. Interaksi Klik NPC Karyawan
+            if (data.id && botsRef.current.has(data.id)) {
+              const npcMesh = botsRef.current.get(data.id);
+              if (npcMesh) {
+                // Mainkan animasi lambai & sapaan
+                npcMesh.userData.action = "waving";
+                setTimeout(() => {
+                  if (npcMesh.userData) npcMesh.userData.action = "idle";
+                }, 2200);
+              }
+              const greetingQuotes = [
+                `Halo pak! Siap, saya sedang menyelesaikan tugas ${data.name.split(" ")[0]} 👍`,
+                `Ada yang bisa saya bantu di divisi ${data.title || "kantor"}?`,
+                `Semangat kerjanya pak! Ruang meeting siap digunakan kapan saja.`,
+                `Kopi di pantry tadi enak banget pak, monggo dicoba!`
+              ];
+              const randomQuote = greetingQuotes[Math.floor(Math.random() * greetingQuotes.length)];
+              addSystemMessage(`💬 ${data.name}: "${randomQuote}"`);
+              setInteractionToast({
+                title: `${data.name} (${data.title || "Karyawan"})`,
+                desc: randomQuote,
+                icon: "👋"
+              });
+              confetti({ particleCount: 20, spread: 50, origin: { y: 0.7 } });
+              return;
+            }
+
+            // 2. Interaksi Mesin Kopi
+            if (data.interactType === "coffeeMachine") {
+              confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
+              addSystemMessage(`☕ ${playerName} menyeduh secangkir Kopi Espresso segar di Barista Pantry! Wangi kopinya harum.`);
+              setInteractionToast({
+                title: "Mesin Espresso Kopi",
+                desc: "Secangkir Kopi Latte hangat berhasil diseduh! Energi bertambah ☕✨",
+                icon: "☕"
+              });
+              if (playerAvatarRef.current && isInOffice) {
+                playerAvatarRef.current.position.set(4.0, 0, 2.5); // Jalan ke depan mesin kopi
+                triggerEmote("coffee");
+              }
+              return;
+            }
+
+            // 3. Interaksi Dispenser Air
+            if (data.interactType === "waterDispenser") {
+              addSystemMessage(`💧 ${playerName} mengambil segelas air mineral dingin di dispenser pantry.`);
+              setInteractionToast({
+                title: "Dispenser Air Bersih",
+                desc: "Segelas air mineral dingin yang menyegarkan dahaga 🧊💧",
+                icon: "💧"
+              });
+              if (playerAvatarRef.current && isInOffice) {
+                playerAvatarRef.current.position.set(7.5, 0, 2.5);
+              }
+              return;
+            }
+
+            // 4. Interaksi Layar Proyektor Rapat
+            if (data.interactType === "whiteboard") {
+              setIsWhiteboardOpen(true);
+              addSystemMessage(`📊 ${playerName} membuka Papan Proyektor & Catatan Rapat di Executive Room.`);
+              return;
+            }
+
+            // 5. Interaksi Kursi / Sofa
+            if (data.interactType === "chair" || data.interactType === "sofa") {
+              if (playerAvatarRef.current && isInOffice) {
+                if (data.sitPos) {
+                  playerAvatarRef.current.position.set(data.sitPos.x, 0, data.sitPos.z);
+                }
+                setPlayerStatus("Away");
+                addSystemMessage(`💺 ${playerName} duduk santai di ${data.label || "kursi kantor"}.`);
+                setInteractionToast({
+                  title: data.label || "Tempat Duduk",
+                  desc: "Avatar Anda duduk santai di sini.",
+                  icon: "💺"
+                });
+              } else {
+                setInteractionToast({
+                  title: data.label || "Tempat Duduk",
+                  desc: "Masuk kantor sebagai avatar untuk menduduki kursi ini.",
+                  icon: "💺"
+                });
+              }
+              return;
+            }
+          }
+        }
+      }
     };
 
     container.addEventListener("pointerdown", handlePointerDown, { passive: true });
@@ -1670,6 +1808,13 @@ export default function VirtualOffice() {
               </div>
 
               <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p className="font-semibold text-white mb-1">✨ Interaksi Objek 3D & Karyawan</p>
+                <p className="text-slate-400 leading-relaxed">
+                  Klik langsung objek apa saja di kantor: <strong>Mesin Kopi</strong> (seduh kopi segar), <strong>Kursi/Sofa</strong> (duduk otomatis), <strong>Layar Rapat</strong> (catatan whiteboard), dan <strong>Karyawan NPC</strong> untuk disapa!
+                </p>
+              </div>
+
+              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
                 <p className="font-semibold text-white mb-1">🌐 Sinkronisasi Multi-Pengguna</p>
                 <p className="text-slate-400 leading-relaxed">
                   Buka website ini di 2 tab atau jendela browser berbeda. Anda akan melihat avatar satu sama lain bergerak secara live real-time, dan chat terkirim secara langsung antar tab tanpa server luar!
@@ -1686,6 +1831,89 @@ export default function VirtualOffice() {
                 </ul>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE TOAST POPUP NOTIFICATION (Saat klik objek 3D atau karyawan) */}
+      {interactionToast && (
+        <div className="absolute top-16 md:top-20 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-xl border border-cyan-500/50 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 max-w-sm w-[90vw] sm:w-auto">
+          <span className="text-2xl select-none">{interactionToast.icon}</span>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-xs font-bold text-white truncate">{interactionToast.title}</h4>
+            <p className="text-[11px] text-cyan-200 leading-snug">{interactionToast.desc}</p>
+          </div>
+          <button
+            onClick={() => setInteractionToast(null)}
+            className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded bg-slate-800"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* WHITEBOARD & CATATAN RAPAT MODAL (Saat klik layar proyektor ruang meeting) */}
+      {isWhiteboardOpen && (
+        <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-lg w-full shadow-2xl text-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="text-base font-bold flex items-center gap-2 text-cyan-400">
+                <Monitor className="w-5 h-5 text-cyan-400" />
+                Papan Rapat & Whiteboard Tim Ekalaya
+              </h3>
+              <button
+                onClick={() => setIsWhiteboardOpen(false)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded bg-slate-800"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 mb-3">
+              Catatan & to-do list agenda rapat di <strong>Executive Meeting Room</strong>:
+            </p>
+
+            {/* List Catatan */}
+            <div className="space-y-2 mb-4 max-h-52 overflow-y-auto pr-1 text-xs">
+              {meetingNotes.map((note, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                  <span className="text-slate-200">{note}</span>
+                  <button
+                    onClick={() => setMeetingNotes(meetingNotes.filter((_, i) => i !== idx))}
+                    className="text-rose-400 hover:text-rose-300 text-xs ml-2"
+                    title="Hapus"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Form Tambah Catatan */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newNoteInput.trim()) return;
+                setMeetingNotes([...meetingNotes, `📌 ${newNoteInput.trim()}`]);
+                addSystemMessage(`📝 ${playerName} menambahkan agenda rapat: "${newNoteInput.trim()}"`);
+                setNewNoteInput("");
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={newNoteInput}
+                onChange={(e) => setNewNoteInput(e.target.value)}
+                placeholder="Tulis agenda rapat baru..."
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="submit"
+                className="px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl text-xs font-semibold hover:from-cyan-400 hover:to-blue-500 transition-all shadow-md active:scale-95"
+              >
+                Tambah
+              </button>
+            </form>
           </div>
         </div>
       )}

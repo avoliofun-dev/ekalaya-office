@@ -225,6 +225,23 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
     2. **Sub-grup B (5 Emote Interaktif)**: 👋 Halo, 🎉 Tepuk, 💃 Joget Disco, 🌀 Spin 360, ☕ Kopi.
     3. **Sub-grup C (Profil & Komunikasi)**: Kustomisasi Avatar (Baju & Status) dan Obrolan Kantor (Chat Drawer).
 
+## 📅 Tahap 19: Interaktivitas Objek 3D & Karyawan Kantor (Click-to-Interact & Whiteboard)
+* **Sistem Raycasting 3D Interaktif**:
+  - Mengimplementasikan `THREE.Raycaster` yang membedakan gestur drag/rotasi kamera (< 8px & < 350ms) dengan klik/sentuhan nyata pada objek 3D.
+  - Setiap objek kantor kini responsif terhadap sentuhan jari di smartphone dan klik mouse di laptop.
+* **Fitur Objek Interaktif yang Dihadirkan**:
+  1. ☕ **Mesin Espresso Kopi di Pantry**:
+     - Klik mesin kopi langsung memicu semburan konfeti, efek status sistem, dan avatar berjalan menyeduh kopi latte hangat.
+  2. 💺 **Kursi Kerja & Sofa Lounge**:
+     - Klik kursi atau sofa mana saja: avatar otomatis berjalan ke koordinat tersebut dan duduk santai (*sitting posture*).
+  3. 💧 **Dispenser Air Minum**:
+     - Klik dispenser untuk mengambil segelas air mineral dingin penghilang dahaga.
+  4. 📊 **Layar Proyektor Rapat (Interactive Whiteboard)**:
+     - Klik layar proyektor di Executive Meeting Room untuk membuka modal **Papan Rapat & Whiteboard Tim**.
+     - Pengguna bisa membaca agenda, mencatat to-do list baru secara real-time, dan menghapus catatan selesai.
+  5. 👋 **Interaksi Sapa Karyawan NPC (Rina, Dimas, Sari, Budi)**:
+     - Klik avatar karyawan: karyawan langsung menengok, membalas dengan lambaian tangan 👋, memunculkan popup notifikasi ucapan ramah, dan menulis percakapan di chat kantor.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
