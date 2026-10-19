@@ -1,0 +1,432 @@
+{
+  "activities": {
+    "nyalakan_lampu": {
+      "name": "Menyalakan Lampu Kantor",
+      "target": "light_switch",
+      "duration": { "min": 5, "max": 10 },
+      "icon": "💡",
+      "category": "arrive"
+    },
+    "nyalakan_komputer": {
+      "name": "Menyalakan Komputer Meja",
+      "target": "desk",
+      "duration": { "min": 10, "max": 20 },
+      "icon": "💻",
+      "category": "office"
+    },
+    "absen_pagi": {
+      "name": "Absen Masuk Pagi",
+      "target": "lobby",
+      "duration": { "min": 8, "max": 15 },
+      "icon": "📱",
+      "category": "arrive"
+    },
+    "bikin_kopi_teh": {
+      "name": "Seduh Kopi / Teh Hangat",
+      "target": "coffeeMachine",
+      "duration": { "min": 20, "max": 45 },
+      "icon": "☕",
+      "category": "pantry"
+    },
+    "kerja_fokus": {
+      "name": "Bekerja Fokus di Meja",
+      "target": "desk",
+      "duration": { "min": 60, "max": 120 },
+      "icon": "📝",
+      "category": "work"
+    },
+    "ngetik_cepat": {
+      "name": "Mengetik Cepat & Deep Work",
+      "target": "desk",
+      "duration": { "min": 50, "max": 90 },
+      "icon": "⚡",
+      "category": "work"
+    },
+    "tidur_meja": {
+      "name": "Tidur-tiduran di Meja",
+      "target": "desk",
+      "duration": { "min": 30, "max": 60 },
+      "icon": "😴",
+      "category": "slacking"
+    },
+    "cek_hp": {
+      "name": "Cek HP & Doomscrolling",
+      "target": "desk",
+      "duration": { "min": 20, "max": 45 },
+      "icon": "📲",
+      "category": "slacking"
+    },
+    "ke_toilet": {
+      "name": "Ke Toilet / Cuci Muka",
+      "target": "toilet",
+      "duration": { "min": 25, "max": 50 },
+      "icon": "🚻",
+      "category": "personal"
+    },
+    "jalan_iseng": {
+      "name": "Jalan-jalan Iseng Peregangan",
+      "target": "random_corridor",
+      "duration": { "min": 20, "max": 40 },
+      "icon": "🚶",
+      "category": "roaming"
+    },
+    "ke_ruangan_teman": {
+      "name": "Mampir ke Meja Rekan Kerja",
+      "target": "coworker_desk",
+      "duration": { "min": 30, "max": 60 },
+      "icon": "🤝",
+      "category": "social"
+    },
+    "ngobrol_pantry": {
+      "name": "Ngobrol Santai di Sofa Pantry",
+      "target": "pantry_sofa_main",
+      "duration": { "min": 35, "max": 75 },
+      "icon": "💬",
+      "category": "pantry"
+    },
+    "makan_camilan": {
+      "name": "Makan Camilan & Donat",
+      "target": "pantry_table",
+      "duration": { "min": 25, "max": 50 },
+      "icon": "🍩",
+      "category": "pantry"
+    },
+    "makan_siang": {
+      "name": "Makan Siang Bersama Tim",
+      "target": "pantry_sofa_main",
+      "duration": { "min": 60, "max": 90 },
+      "icon": "🍱",
+      "category": "break"
+    },
+    "salat": {
+      "name": "Ibadah Salat di Musala",
+      "target": "musala",
+      "duration": { "min": 35, "max": 60 },
+      "icon": "🕌",
+      "category": "personal"
+    },
+    "dipanggil_bos": {
+      "name": "Dipanggil Menghadap Ruang Pimpinan",
+      "target": "boardroom_boss",
+      "duration": { "min": 40, "max": 75 },
+      "icon": "👔",
+      "category": "formal"
+    },
+    "rapat": {
+      "name": "Rapat Koordinasi di Boardroom",
+      "target": "boardroom_center",
+      "duration": { "min": 50, "max": 90 },
+      "icon": "📊",
+      "category": "formal"
+    },
+    "fotokopi_print": {
+      "name": "Print & Fotokopi Dokumen",
+      "target": "printer",
+      "duration": { "min": 20, "max": 40 },
+      "icon": "🖨️",
+      "category": "office"
+    },
+    "ambil_air": {
+      "name": "Ambil Air Minum Segar",
+      "target": "dispenser",
+      "duration": { "min": 15, "max": 30 },
+      "icon": "💧",
+      "category": "pantry"
+    },
+    "nelpon": {
+      "name": "Nelpon Klien / Koordinasi HP",
+      "target": "window_west",
+      "duration": { "min": 30, "max": 60 },
+      "icon": "📞",
+      "category": "work"
+    },
+    "ngelamun_jendela": {
+      "name": "Ngelamun Menatap Jendela Kaca",
+      "target": "window_east",
+      "duration": { "min": 30, "max": 65 },
+      "icon": "🪟",
+      "category": "slacking"
+    },
+    "bantu_teman": {
+      "name": "Bantu Review Kerjaan Teman",
+      "target": "coworker_desk",
+      "duration": { "min": 35, "max": 70 },
+      "icon": "💡",
+      "category": "social"
+    },
+    "dimarahi_bos": {
+      "name": "Mendapat Evaluasi Keras dari Bos",
+      "target": "boardroom_boss",
+      "duration": { "min": 30, "max": 50 },
+      "icon": "⚠️",
+      "category": "formal"
+    },
+    "beres_meja": {
+      "name": "Merapikan Meja & Dokumen",
+      "target": "desk",
+      "duration": { "min": 20, "max": 35 },
+      "icon": "✨",
+      "category": "leave"
+    },
+    "matikan_komputer": {
+      "name": "Mematikan Komputer Meja",
+      "target": "desk",
+      "duration": { "min": 10, "max": 20 },
+      "icon": "🔌",
+      "category": "leave"
+    },
+    "matikan_lampu": {
+      "name": "Mematikan Saklar Lampu Kantor",
+      "target": "light_switch",
+      "duration": { "min": 8, "max": 15 },
+      "icon": "🌙",
+      "category": "leave"
+    },
+    "absen_pulang": {
+      "name": "Absen Pulang Kantor",
+      "target": "lobby",
+      "duration": { "min": 8, "max": 15 },
+      "icon": "👋",
+      "category": "leave"
+    },
+    "pamitan": {
+      "name": "Pamitan Pulang ke Rekan Kantor",
+      "target": "random_corridor",
+      "duration": { "min": 15, "max": 30 },
+      "icon": "🤝",
+      "category": "leave"
+    },
+    "beli_makan": {
+      "name": "Mampir Beli Makanan di Luar",
+      "target": "entrance",
+      "duration": { "min": 40, "max": 80 },
+      "icon": "🥡",
+      "category": "outside"
+    },
+    "isi_bensin": {
+      "name": "Mampir Isi Bensin Kendaraan",
+      "target": "entrance",
+      "duration": { "min": 30, "max": 60 },
+      "icon": "⛽",
+      "category": "outside"
+    },
+    "kena_macet": {
+      "name": "Terjebak Macet Perjalanan Pulang",
+      "target": "entrance",
+      "duration": { "min": 45, "max": 90 },
+      "icon": "🚗",
+      "category": "outside"
+    },
+    "nongkrong": {
+      "name": "Nongkrong Santai Sehabis Kerja",
+      "target": "entrance",
+      "duration": { "min": 60, "max": 120 },
+      "icon": "☕",
+      "category": "outside"
+    },
+    "belanja": {
+      "name": "Mampir Belanja Kebutuhan Harian",
+      "target": "entrance",
+      "duration": { "min": 45, "max": 90 },
+      "icon": "🛍️",
+      "category": "outside"
+    },
+    "jemput_keluarga": {
+      "name": "Jemput Anak / Keluarga",
+      "target": "entrance",
+      "duration": { "min": 50, "max": 100 },
+      "icon": "👨‍👩‍👧",
+      "category": "outside"
+    },
+    "langsung_pulang": {
+      "name": "Langsung Istirahat di Rumah",
+      "target": "entrance",
+      "duration": { "min": 120, "max": 360 },
+      "icon": "🏠",
+      "category": "outside"
+    },
+    "tamu_datang": {
+      "name": "Tamu Bisnis Tiba di Lobi",
+      "target": "lobby",
+      "duration": { "min": 15, "max": 30 },
+      "icon": "💼",
+      "category": "guest"
+    },
+    "tamu_diskusi": {
+      "name": "Diskusi Prospek Bisnis & Kemitraan",
+      "target": "boardroom_guest",
+      "duration": { "min": 60, "max": 120 },
+      "icon": "🤝",
+      "category": "guest"
+    }
+  },
+  "profiles": {
+    "profile_rina": {
+      "id": "profile_rina",
+      "archetype": "Disiplin & Terstruktur",
+      "arriveTime": "07:30",
+      "leaveTime": "17:00",
+      "postLeaveActivity": "belanja",
+      "weights": {
+        "kerja_fokus": 45,
+        "ngetik_cepat": 25,
+        "fotokopi_print": 10,
+        "ambil_air": 6,
+        "bikin_kopi_teh": 5,
+        "ngobrol_pantry": 5,
+        "ke_ruangan_teman": 4,
+        "salat": 8,
+        "tidur_meja": 0,
+        "cek_hp": 2,
+        "ngelamun_jendela": 0,
+        "jalan_iseng": 2,
+        "ke_toilet": 4
+      }
+    },
+    "profile_budi": {
+      "id": "profile_budi",
+      "archetype": "Santai, Suka Canda & Sering Telat",
+      "arriveTime": "08:10",
+      "leaveTime": "17:15",
+      "postLeaveActivity": "nongkrong",
+      "weights": {
+        "kerja_fokus": 18,
+        "ngetik_cepat": 8,
+        "ngobrol_pantry": 22,
+        "bikin_kopi_teh": 12,
+        "makan_camilan": 10,
+        "ke_toilet": 12,
+        "jalan_iseng": 12,
+        "ke_ruangan_teman": 12,
+        "tidur_meja": 10,
+        "cek_hp": 18,
+        "dipanggil_bos": 10,
+        "dimarahi_bos": 8,
+        "salat": 6
+      }
+    },
+    "profile_dimas": {
+      "id": "profile_dimas",
+      "archetype": "Workaholic & Deep Tech",
+      "arriveTime": "06:55",
+      "leaveTime": "19:15",
+      "postLeaveActivity": "isi_bensin",
+      "weights": {
+        "kerja_fokus": 50,
+        "ngetik_cepat": 35,
+        "rapat": 12,
+        "bikin_kopi_teh": 8,
+        "ambil_air": 6,
+        "nelpon": 4,
+        "ngobrol_pantry": 3,
+        "ke_toilet": 4,
+        "tidur_meja": 2,
+        "cek_hp": 3,
+        "ngelamun_jendela": 1,
+        "salat": 5
+      }
+    },
+    "profile_sari": {
+      "id": "profile_sari",
+      "archetype": "Sosial & Koordinatif",
+      "arriveTime": "07:45",
+      "leaveTime": "17:00",
+      "postLeaveActivity": "jemput_keluarga",
+      "weights": {
+        "kerja_fokus": 30,
+        "ngetik_cepat": 12,
+        "ke_ruangan_teman": 20,
+        "ngobrol_pantry": 18,
+        "makan_camilan": 12,
+        "fotokopi_print": 8,
+        "bantu_teman": 12,
+        "ambil_air": 6,
+        "bikin_kopi_teh": 6,
+        "ke_toilet": 5,
+        "salat": 8,
+        "cek_hp": 5,
+        "tidur_meja": 0
+      }
+    },
+    "profile_joko": {
+      "id": "profile_joko",
+      "archetype": "Pasif & Minimalis",
+      "arriveTime": "08:05",
+      "leaveTime": "17:00",
+      "postLeaveActivity": "langsung_pulang",
+      "weights": {
+        "kerja_fokus": 15,
+        "ngetik_cepat": 5,
+        "cek_hp": 25,
+        "tidur_meja": 16,
+        "ngelamun_jendela": 15,
+        "ke_toilet": 14,
+        "jalan_iseng": 12,
+        "ngobrol_pantry": 6,
+        "salat": 10,
+        "ambil_air": 6,
+        "bikin_kopi_teh": 5
+      }
+    },
+    "profile_luna": {
+      "id": "profile_luna",
+      "archetype": "AI Sales Specialist & Host Kantor",
+      "arriveTime": "00:00",
+      "leaveTime": "23:59",
+      "postLeaveActivity": "langsung_pulang",
+      "weights": {
+        "kerja_fokus": 45,
+        "ngetik_cepat": 25,
+        "nelpon": 15,
+        "ngobrol_pantry": 12,
+        "ke_ruangan_teman": 10,
+        "rapat": 10,
+        "tamu_diskusi": 20
+      }
+    },
+    "profile_maya": {
+      "id": "profile_maya",
+      "archetype": "Product & Scrum Manager",
+      "arriveTime": "08:00",
+      "leaveTime": "17:30",
+      "postLeaveActivity": "beli_makan",
+      "weights": {
+        "kerja_fokus": 35,
+        "rapat": 22,
+        "ke_ruangan_teman": 16,
+        "bantu_teman": 10,
+        "bikin_kopi_teh": 8,
+        "fotokopi_print": 6,
+        "ngobrol_pantry": 8,
+        "salat": 6
+      }
+    },
+    "profile_hendra": {
+      "id": "profile_hendra",
+      "archetype": "Growth Marketing Specialist",
+      "arriveTime": "08:15",
+      "leaveTime": "17:30",
+      "postLeaveActivity": "kena_macet",
+      "weights": {
+        "kerja_fokus": 32,
+        "nelpon": 18,
+        "ngetik_cepat": 15,
+        "ngobrol_pantry": 14,
+        "cek_hp": 10,
+        "jalan_iseng": 8,
+        "bikin_kopi_teh": 7,
+        "ke_ruangan_teman": 8
+      }
+    },
+    "profile_guest": {
+      "id": "profile_guest",
+      "archetype": "Calon Klien Bisnis / Tamu Kantor",
+      "arriveTimes": ["10:30", "14:00"],
+      "meetingDurationMinutes": 35,
+      "weights": {
+        "tamu_datang": 50,
+        "tamu_diskusi": 50
+      }
+    }
+  }
+}

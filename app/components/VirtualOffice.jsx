@@ -10,6 +10,7 @@ import { PeerNetwork } from "@/lib/peerNetwork";
 import CrmWorkspaceModal from "./CrmWorkspaceModal";
 import PricingModal from "./PricingModal";
 import AdminDashboardModal from "./AdminDashboardModal";
+import LunaChatModal from "./LunaChatModal";
 import { getStoredSubscription } from "@/lib/subscriptionStore";
 import {
   MessageSquare,
@@ -198,6 +199,12 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
 
   // INTERACTIVE 3D OBJECTS STATE
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
+  const [isLunaModalOpen, setIsLunaModalOpen] = useState(false); // Luna AI Sales Assistant Modal
+  const [showBehaviorDebug, setShowBehaviorDebug] = useState(false);
+  const showBehaviorDebugRef = useRef(false);
+  useEffect(() => {
+    showBehaviorDebugRef.current = showBehaviorDebug;
+  }, [showBehaviorDebug]);
   const [interactionToast, setInteractionToast] = useState(null); // { title, desc, icon }
   const [selectedNpcDialog, setSelectedNpcDialog] = useState(null); // { id, name, title, personality, avatarColor, status, lastReply, needs }
   const [meetingNotes, setMeetingNotes] = useState([
@@ -506,11 +513,11 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
     dirLight.shadow.mapSize.width = isMobileScreen ? 1024 : 2048;
     dirLight.shadow.mapSize.height = isMobileScreen ? 1024 : 2048;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 45;
-    dirLight.shadow.camera.left = -18;
-    dirLight.shadow.camera.right = 18;
-    dirLight.shadow.camera.top = 18;
-    dirLight.shadow.camera.bottom = -18;
+    dirLight.shadow.camera.far = 55;
+    dirLight.shadow.camera.left = -22;
+    dirLight.shadow.camera.right = 22;
+    dirLight.shadow.camera.top = 22;
+    dirLight.shadow.camera.bottom = -22;
     scene.add(dirLight);
     dirLightRef.current = dirLight;
 
@@ -758,8 +765,21 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           if (targetObj) {
             const data = targetObj.userData;
 
-            // 1. Interaksi Klik NPC Karyawan (Buka Dialog Obrolan Cerdas)
+            // 1. Interaksi Klik NPC Karyawan
             if (data.id && botsRef.current.has(data.id)) {
+              if (data.id === "npc-luna") {
+                setIsLunaModalOpen(true);
+                addSystemMessage(`✨ ${playerName} berinteraksi dengan Luna (AI Sales Assistant).`);
+                const npcMesh = botsRef.current.get("npc-luna");
+                if (npcMesh) {
+                  npcMesh.userData.action = "waving";
+                  setTimeout(() => {
+                    if (npcMesh.userData) npcMesh.userData.action = "idle";
+                  }, 2000);
+                }
+                return;
+              }
+
               const npcMesh = botsRef.current.get(data.id);
               if (npcMesh) {
                 // Mainkan animasi lambai & sapaan
@@ -829,10 +849,10 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
               return;
             }
 
-            // 4b. Interaksi Meja Sales & CRM / Asisten AI
+            // 4b. Interaksi Meja Sales & CRM / Asisten AI Luna
             if (data.interactType === "salesDesk") {
-              setIsCrmModalOpen(true);
-              addSystemMessage(`💼 ${playerName} membuka Meja Kerja CRM & AI Sales Assistant.`);
+              setIsLunaModalOpen(true);
+              addSystemMessage(`💼 ${playerName} membuka Meja Sales bersama Luna (AI Assistant).`);
               return;
             }
 
@@ -974,8 +994,8 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           const nextX = player.position.x + moveX * speed;
           const nextZ = player.position.z + moveZ * speed;
 
-          if (nextX > -10 && nextX < 10) player.position.x = nextX;
-          if (nextZ > -10 && nextZ < 10) player.position.z = nextZ;
+          if (nextX > -16.5 && nextX < 16.5) player.position.x = nextX;
+          if (nextZ > -14.5 && nextZ < 14.5) player.position.z = nextZ;
 
           const targetRot = Math.atan2(moveX, moveZ);
           player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetRot, 0.25);
@@ -1122,7 +1142,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         }
 
         // Spherical Orbit Camera: Mode Pengawas Kantor atau Mengikuti Player + Panning Target + Smooth Zoom
-        const camDistance = (isInOffice ? 11.0 : 16.5) * zoomLevel * (zoomFactorRef.current || 1.0);
+        const camDistance = (isInOffice ? 13.0 : 21.5) * zoomLevel * (zoomFactorRef.current || 1.0);
         const theta = cameraAngle.current.theta;
         const phi = cameraAngle.current.phi;
 
@@ -1244,10 +1264,12 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
 
           // Update teks nametag, status aktivitas, dan bubble obrolan di atas kepala
           const activeBubble = engine.getBubbleForNpc(npcId);
+          const debugLabel = showBehaviorDebugRef.current && engine.getBehaviorDebugInfo ? engine.getBehaviorDebugInfo(npcId) : null;
+          const displayStatus = debugLabel ? `${npc.currentStatusLabel} ${debugLabel}` : npc.currentStatusLabel;
           if (npcMesh.userData.updateOverheadDisplay) {
             npcMesh.userData.updateOverheadDisplay(
               npc.name,
-              npc.currentStatusLabel,
+              displayStatus,
               activeBubble
             );
           }
@@ -1319,6 +1341,17 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
             npcMesh.userData.rightArmPivot.rotation.x = 0;
             npcMesh.userData.rightArmPivot.rotation.z = Math.sin(time * 12) * 0.5 + 2.4;
             npcMesh.userData.leftArmPivot.rotation.z = 0;
+          } else if (act === "thinking") {
+            npcMesh.position.y = 0;
+            npcMesh.userData.rightArmPivot.rotation.x = -1.8;
+            npcMesh.userData.rightArmPivot.rotation.z = 0.5 + Math.sin(time * 3) * 0.05;
+            npcMesh.userData.leftArmPivot.rotation.x = -0.4;
+          } else if (act === "speaking") {
+            npcMesh.position.y = 0;
+            npcMesh.userData.leftArmPivot.rotation.x = -0.8 + Math.sin(time * 8) * 0.25;
+            npcMesh.userData.rightArmPivot.rotation.x = -0.8 + Math.cos(time * 8) * 0.25;
+            npcMesh.userData.leftArmPivot.rotation.z = -0.2;
+            npcMesh.userData.rightArmPivot.rotation.z = 0.2;
           } else if (act === "cheer") {
             npcMesh.position.y = 0;
             npcMesh.userData.leftArmPivot.rotation.z = -2.2 + Math.sin(time * 18) * 0.3;
@@ -1488,6 +1521,24 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                   >
                     <Users className="w-3 h-3 text-cyan-400" />
                     <span>({npcListState.length + 1 + connectedPeersCount})</span>
+                  </button>
+
+                  {/* TOGGLE DEBUG BEHAVIOR OVERHEAD */}
+                  <button
+                    onClick={() => {
+                      const next = !showBehaviorDebug;
+                      setShowBehaviorDebug(next);
+                      addSystemMessage(next ? "🔍 Debug Behavior Aktif: Menampilkan timer & aktivitas detail di atas kepala NPC." : "🔍 Debug Behavior Dimatikan.");
+                    }}
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-semibold transition-all active:scale-95 border ${
+                      showBehaviorDebug
+                        ? "bg-purple-600/30 text-purple-300 border-purple-500/50 shadow-md shadow-purple-500/20"
+                        : "bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700/60 hover:text-white"
+                    }`}
+                    title="Toggle Debug Behavior (Tampilkan aktivitas & sisa timer di atas kepala NPC)"
+                  >
+                    <span>🤖</span>
+                    <span className="hidden md:inline">{showBehaviorDebug ? "Debug ON" : "Behavior"}</span>
                   </button>
 
                   <button
@@ -2525,6 +2576,29 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         isOpen={isAdminModalOpen}
         onClose={() => setIsAdminModalOpen(false)}
         currentUser={currentUser}
+      />
+
+      {/* MODAL LUNA AI SALES ASSISTANT & N8N INTEGRATION (KONSEP 3) */}
+      <LunaChatModal
+        isOpen={isLunaModalOpen}
+        onClose={() => {
+          setIsLunaModalOpen(false);
+          const lunaMesh = botsRef.current?.get("npc-luna");
+          if (lunaMesh) lunaMesh.userData.action = "idle";
+        }}
+        currentUser={currentUser}
+        activeSubscription={activeSubscription}
+        onCharacterStateChange={(state) => {
+          const lunaMesh = botsRef.current?.get("npc-luna");
+          if (lunaMesh) {
+            if (state === "thinking") lunaMesh.userData.action = "thinking";
+            else if (state === "speaking") lunaMesh.userData.action = "speaking";
+            else if (state === "completed") lunaMesh.userData.action = "cheer";
+            else if (state === "error") lunaMesh.userData.action = "idle";
+            else if (state === "idle") lunaMesh.userData.action = "idle";
+          }
+        }}
+        onOpenCrmWorkspace={() => setIsCrmModalOpen(true)}
       />
     </div>
   );
