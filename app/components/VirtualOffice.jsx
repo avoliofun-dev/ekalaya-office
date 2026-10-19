@@ -243,23 +243,21 @@ export default function VirtualOffice() {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("ekalaya_sim_accelerated", nextAcc ? "true" : "false");
-        if (!nextAcc) {
-          // Jika kembali ke realtime, reset sim_minutes agar sinkron dengan jam nyata komputer
-          localStorage.removeItem("ekalaya_sim_minutes");
+        // Simpan waktu saat ini ke localStorage agar tetap di jam tersebut saat dihentikan
+        if (simulationEngineRef.current) {
+          localStorage.setItem("ekalaya_sim_minutes", simulationEngineRef.current.simulatedMinutes.toString());
         }
       } catch (e) {}
     }
     if (simulationEngineRef.current) {
       simulationEngineRef.current.isAccelerated = nextAcc;
-      if (!nextAcc) {
-        const now = new Date();
-        simulationEngineRef.current.simulatedMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-      }
+      // Jangan reset simulatedMinutes ke jam komputer saat dihentikan!
+      // Biarkan waktu tetap di jam terakhir hasil percepatan dan berjalan normal 1x dari situ.
     }
     addSystemMessage(
       nextAcc
-        ? "⚡ Mode Dipercepat Aktif: 1 Hari = 10 Menit (Cocok untuk uji siklus penuh)"
-        : "🕒 Mode Waktu Nyata (Realtime 24 Jam) Aktif: Jam sinkron dengan jam komputer saat ini"
+        ? "⚡ Mode Dipercepat Aktif: 1 Hari = 10 Menit (Simulasi berjalan cepat)"
+        : `⏸️ Kecepatan Normal: Tetap di jam ${simulationEngineRef.current ? minutesToTimeString(simulationEngineRef.current.simulatedMinutes) : "saat ini"} dan berjalan normal`
     );
   };
 
@@ -1118,6 +1116,29 @@ export default function VirtualOffice() {
                   title="Majukan waktu 1 jam ke depan"
                 >
                   +1 Jam
+                </button>
+                <button
+                  onClick={() => {
+                    const now = new Date();
+                    const realMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+                    if (simulationEngineRef.current) {
+                      simulationEngineRef.current.simulatedMinutes = realMin;
+                      simulationEngineRef.current.isAccelerated = false;
+                    }
+                    setIsTimeAccelerated(false);
+                    if (typeof window !== "undefined") {
+                      try {
+                        localStorage.removeItem("ekalaya_sim_minutes");
+                        localStorage.setItem("ekalaya_sim_accelerated", "false");
+                      } catch (e) {}
+                    }
+                    setSimulatedTimeStr(minutesToTimeString(realMin));
+                    addSystemMessage(`🔄 Waktu direset kembali ke jam nyata komputer (${minutesToTimeString(realMin)} WIB)`);
+                  }}
+                  className="px-1.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white text-[10px] transition-all"
+                  title="Reset jam kembali sinkron dengan jam nyata komputer Anda"
+                >
+                  Reset
                 </button>
               </div>
             </div>
