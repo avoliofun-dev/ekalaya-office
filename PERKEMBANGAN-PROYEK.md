@@ -81,6 +81,13 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
   4. 🌀 **Putar 360 / Spin**: Berputar cepat 360 derajat.
   5. ☕ **Istirahat Kopi / Relax**: Status santai duduk rehat di pantry.
 
+## 📅 Tahap 9: Perbaikan Tombol & Joystick di Mode Fullscreen + Default Siang Hari
+* **Default Mode Siang (Daylight)**:
+  - Saat web dibuka pertama kali, default suasana kantor sekarang adalah **Siang Hari** yang terang, segar, dan berenergi. Pengguna tetap bisa mengganti ke mode malam kapan saja dengan tombol Sun/Moon.
+* **Perbaikan Fullscreen (Kursor, Joystick & Tombol Tetap Muncul)**:
+  - Masalah sebelumnya: saat fullscreen diaktifkan pada beberapa browser HP, elemen UI melorot atau tersembunyi karena fullscreen di-request pada elemen root HTML terluar.
+  - Perbaikan: Fullscreen sekarang di-binding langsung ke komponen utama (`rootRef`) dan ditambahkan sinkronisasi `fullscreenchange` otomatis. Hasilnya, saat masuk mode fullscreen, seluruh kontrol analog joystick, tombol loncat, dock bawah, serta tombol header **tetap tampil utuh dan interaktif 100%**.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*

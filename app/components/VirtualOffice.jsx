@@ -46,23 +46,47 @@ export default function VirtualOffice() {
   const [peersNearby, setPeersNearby] = useState([]);
   const [connectedPeersCount, setConnectedPeersCount] = useState(0);
   // Day/Night and Camera Zoom state
-  const [isDayMode, setIsDayMode] = useState(false);
+  const [isDayMode, setIsDayMode] = useState(true); // Default SIANG
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const rootRef = useRef(null);
   const ambientLightRef = useRef(null);
   const dirLightRef = useRef(null);
 
-  // Fullscreen toggle function
+  // Fullscreen toggle function - Request fullscreen on rootRef so all UI remains visible!
   const toggleFullscreen = () => {
     if (typeof document === "undefined") return;
+    const elem = rootRef.current || document.documentElement;
+
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+        setIsFullscreen(true);
+      }
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+        setIsFullscreen(false);
       }
     }
   };
+
+  // Sync isFullscreen state if user exits via browser gesture/esc
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   // Client-side initialization of user id and saved name
   useEffect(() => {
@@ -699,7 +723,7 @@ export default function VirtualOffice() {
   }, [avatarColor, playerName, playerStatus, userId, isDayMode, zoomLevel]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
+    <div ref={rootRef} className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
       {/* 3D WEBGL VIEWPORT */}
       <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
 
