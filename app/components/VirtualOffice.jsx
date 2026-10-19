@@ -51,10 +51,10 @@ export default function VirtualOffice() {
   // User state & Office Presence State
   const [userId, setUserId] = useState("user_init");
   const [playerName, setPlayerName] = useState("Raja (Owner)");
-  const [playerStatus, setPlayerStatus] = useState("Available"); // Available | Busy | Away
+  const [playerStatus, setPlayerStatus] = useState("Monitoring"); // Mode Pengawas Kantor
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].hex);
-  const [currentZone, setCurrentZone] = useState("Lobi Kantor");
-  const [isInOffice, setIsInOffice] = useState(true); // Status Masuk / Keluar Kantor
+  const [currentZone, setCurrentZone] = useState("Ruang Pengawas Kantor");
+  const [isInOffice, setIsInOffice] = useState(false); // Default: Avatar disembunyikan/dikeluarkan (Mode Kamera Pengawas)
   const [peersNearby, setPeersNearby] = useState([]);
   const [connectedPeersCount, setConnectedPeersCount] = useState(0);
 
@@ -424,7 +424,7 @@ export default function VirtualOffice() {
     // BUILD OFFICE
     buildOfficeScene(scene);
 
-    // BUILD PLAYER AVATAR
+    // BUILD PLAYER AVATAR (Hanya tampil jika Owner memilih masuk kantor)
     const player = createBlockyAvatar({
       name: playerName,
       color: avatarColor,
@@ -432,7 +432,8 @@ export default function VirtualOffice() {
       isPlayer: true,
       status: playerStatus,
     });
-    player.position.set(0, 0, 8);
+    player.position.set(0, 0, isInOffice ? 8 : 12);
+    player.visible = isInOffice; // Disembunyikan secara default sesuai permintaan user
     scene.add(player);
     playerAvatarRef.current = player;
 
@@ -806,19 +807,24 @@ export default function VirtualOffice() {
           }
         }
 
-        // Spherical Orbit Camera relative to player (Roblox style rotation)
-        const camDistance = 11.0 * zoomLevel;
+        // Spherical Orbit Camera: Mode Pengawas Kantor (Panoramic Overview) atau Mengikuti Player
+        const camDistance = (isInOffice ? 11.0 : 16.5) * zoomLevel;
         const theta = cameraAngle.current.theta;
         const phi = cameraAngle.current.phi;
 
-        const targetCamX = player.position.x + camDistance * Math.sin(theta) * Math.cos(phi);
-        const targetCamY = player.position.y + camDistance * Math.sin(phi) + 1.5;
-        const targetCamZ = player.position.z + camDistance * Math.cos(theta) * Math.cos(phi);
+        // Titik fokus kamera: ke tengah kantor (0, 1.2, 0) jika avatar dibuang/pengawas, atau ke avatar jika sedang masuk kantor
+        const focusX = isInOffice ? player.position.x : 0;
+        const focusY = isInOffice ? player.position.y + 1.2 : 1.2;
+        const focusZ = isInOffice ? player.position.z : 0;
+
+        const targetCamX = focusX + camDistance * Math.sin(theta) * Math.cos(phi);
+        const targetCamY = focusY + camDistance * Math.sin(phi) + 2.0;
+        const targetCamZ = focusZ + camDistance * Math.cos(theta) * Math.cos(phi);
 
         camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, 0.12);
         camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.12);
         camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.12);
-        camera.lookAt(player.position.x, player.position.y + 1.2, player.position.z);
+        camera.lookAt(focusX, focusY, focusZ);
 
         // Send network state update (throttled 20Hz / 50ms)
         if (time - lastNetworkSync > 0.05 && peerNetworkRef.current) {
@@ -1197,21 +1203,21 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* OVERLAY STATUS JIKA KELUAR DARI KANTOR */}
-      {!isInOffice && (
-        <div className="absolute top-28 md:top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto bg-slate-900/95 border border-rose-500/50 text-slate-200 px-4 py-3 rounded-2xl backdrop-blur-xl flex items-center gap-3 text-xs shadow-2xl animate-in zoom-in-95">
-          <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 font-bold text-sm">
-            🚪
+      {/* BANNER STATUS MODE PENGAWAS (OWNER SPECTATOR / CCTV MODE) */}
+      {!isInOffice && !isCleanUIMode && (
+        <div className="absolute top-28 md:top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto bg-slate-900/95 border border-cyan-500/40 text-slate-200 px-4 py-2.5 rounded-2xl backdrop-blur-xl flex items-center gap-3 text-xs shadow-2xl animate-in zoom-in-95">
+          <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold text-sm">
+            📡
           </div>
           <div>
-            <p className="font-bold text-rose-300">Anda Sedang di Luar Kantor (Away / Off)</p>
-            <p className="text-[10px] text-slate-400">Avatar Anda keluar dari ruangan. 4 Pegawai tetap aktif bekerja sesuai sekejul.</p>
+            <p className="font-bold text-cyan-300">Mode Pengawas Kantor Aktif (Owner Observasi)</p>
+            <p className="text-[10px] text-slate-400">Avatar dinonaktifkan. 4 Pegawai bergerak mandiri secara dinamis dengan algoritma sekejul.</p>
           </div>
           <button
             onClick={toggleOfficePresence}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+            className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-200 font-semibold text-[11px] transition-all"
           >
-            Masuk Kembali
+            Masuk Sebagai Avatar
           </button>
         </div>
       )}
@@ -1673,61 +1679,70 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* MOBILE MLBB-STYLE ANALOG JOYSTICK & JUMP BUTTON CONTROLS */}
-      {/* 1. ANALOG JOYSTICK (LEFT SIDE) */}
-      <div className="md:hidden absolute bottom-12 left-5 z-20 select-none touch-none">
-        <div
-          className="relative w-32 h-32 rounded-full bg-slate-900/60 border-2 border-cyan-500/40 backdrop-blur-md flex items-center justify-center shadow-2xl active:border-cyan-400"
-          onTouchStart={(e) => {
-            const touch = e.touches[0];
-            const rect = e.currentTarget.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const dx = (touch.clientX - centerX) / (rect.width / 2);
-            const dy = (touch.clientY - centerY) / (rect.height / 2);
-            joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
-          }}
-          onTouchMove={(e) => {
-            const touch = e.touches[0];
-            const rect = e.currentTarget.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const dx = (touch.clientX - centerX) / (rect.width / 2);
-            const dy = (touch.clientY - centerY) / (rect.height / 2);
-            joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
-          }}
-          onTouchEnd={() => {
-            joystickVector.current = { x: 0, z: 0 };
-          }}
-        >
-          {/* Inner Joystick Thumb */}
-          <div
-            className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 border border-white/40 shadow-xl flex items-center justify-center text-white font-black text-xs transition-transform pointer-events-none"
-            style={{
-              transform: `translate(${joystickVector.current.x * 24}px, ${joystickVector.current.z * 24}px)`,
-            }}
-          >
-            🕹️
+      {/* MOBILE MLBB-STYLE ANALOG JOYSTICK & JUMP BUTTON CONTROLS (Hanya saat isInOffice aktif) */}
+      {isInOffice && (
+        <>
+          {/* 1. ANALOG JOYSTICK (LEFT SIDE) */}
+          <div className="md:hidden absolute bottom-12 left-5 z-20 select-none touch-none">
+            <div
+              className="relative w-32 h-32 rounded-full bg-slate-900/60 border-2 border-cyan-500/40 backdrop-blur-md flex items-center justify-center shadow-2xl active:border-cyan-400"
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const dx = (touch.clientX - centerX) / (rect.width / 2);
+                const dy = (touch.clientY - centerY) / (rect.height / 2);
+                joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
+              }}
+              onTouchMove={(e) => {
+                const touch = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const dx = (touch.clientX - centerX) / (rect.width / 2);
+                const dy = (touch.clientY - centerY) / (rect.height / 2);
+                joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
+              }}
+              onTouchEnd={() => {
+                joystickVector.current = { x: 0, z: 0 };
+              }}
+            >
+              {/* Inner Joystick Thumb */}
+              <div
+                className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 border border-white/40 shadow-xl flex items-center justify-center text-white font-black text-xs transition-transform pointer-events-none"
+                style={{
+                  transform: `translate(${joystickVector.current.x * 24}px, ${joystickVector.current.z * 24}px)`,
+                }}
+              >
+                🕹️
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* 2. JUMP BUTTON & ACTION CONTROLS (RIGHT SIDE) */}
-      <div className="md:hidden absolute bottom-12 right-5 z-20 flex flex-col items-center gap-2 select-none touch-none">
-        {/* JUMP ACTION BUTTON (Besar ala MLBB) */}
-        <button
-          onTouchStart={(e) => { e.preventDefault(); triggerJump(); }}
-          onClick={triggerJump}
-          className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 border-2 border-white/50 active:scale-90 text-white font-extrabold text-sm shadow-2xl flex flex-col items-center justify-center shadow-cyan-500/40"
-        >
-          <span>⏫</span>
-          <span className="text-[10px] tracking-tight">LONCAT</span>
-        </button>
+          {/* 2. JUMP BUTTON & ACTION CONTROLS (RIGHT SIDE) */}
+          <div className="md:hidden absolute bottom-12 right-5 z-20 flex flex-col items-center gap-2 select-none touch-none">
+            {/* JUMP ACTION BUTTON (Besar ala MLBB) */}
+            <button
+              onTouchStart={(e) => { e.preventDefault(); triggerJump(); }}
+              onClick={triggerJump}
+              className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 border-2 border-white/50 active:scale-90 text-white font-extrabold text-sm shadow-2xl flex flex-col items-center justify-center shadow-cyan-500/40"
+            >
+              <span>⏫</span>
+              <span className="text-[10px] tracking-tight">LONCAT</span>
+            </button>
 
-        {/* ROTATE CAM HINT */}
-        <div className="bg-slate-900/70 border border-slate-700/60 px-2 py-1 rounded-lg text-[9px] text-cyan-300 pointer-events-none">
-          👆 Geser layar untuk putar kamera
-        </div>
+            {/* ROTATE CAM HINT */}
+            <div className="bg-slate-900/70 border border-slate-700/60 px-2 py-1 rounded-lg text-[9px] text-cyan-300 pointer-events-none">
+              👆 Geser layar untuk putar kamera
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}
+      <div className="hidden lg:flex absolute bottom-6 right-6 z-10 pointer-events-none items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800 text-[11px] text-slate-400">
+        <span>Geser layar / mouse untuk memutar kamera CCTV pengawas 360°</span>
       </div>
 
       {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}

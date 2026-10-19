@@ -153,8 +153,21 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
     - Melambaikan tangan (Wave 👋)
     - Bersorak apresiasi (Cheer 🎉)
     - Berjoget disko santai (Dance 💃)
-    - Putar badan 360 derajat (Spin 🌀)
+## 📅 Tahap 14: Mode Kamera Pengawas (Owner Spectator) & Algoritma Jadwal Otonom Karyawan
+* **Penonaktifan Avatar Pemain (Mode Observasi / CCTV Penuh)**:
+  - Sesuai instruksi owner, avatar user dibuang/disembunyikan dari ruangan kantor secara default.
+  - Kamera WebGL otomatis berganti dari *Third-Person Follow* menjadi **Mode Kamera Pengawas Panoramic (CCTV 360°)** yang mencakup pemandangan utuh seluruh ruangan kantor dan 4 pegawai.
+  - Kontrol analog joystick disembunyikan otomatis agar layar bersih dan fokus pada kegiatan pegawai.
+  - Owner tetap bisa masuk kembali menjadi avatar kapan saja jika diinginkan melalui tombol *Masuk Sebagai Avatar*.
+* **Algoritma Sistem Kegiatan Karyawan (`lib/workCycle.js`)**:
+  - Mengimplementasikan **Autonomous Employee Navigation Engine** dengan titik-titik koordinat waypoints terpetakan presisi di setiap divisi:
+    1. *Workstation Bay*: Meja Rani, Budi, Siti, Dimas.
+    2. *Executive Meeting Room*: Kursi Utara, Selatan, Barat, Timur, dan Layar Proyektor Whiteboard.
+    3. *Pantry & Coffee Lounge*: Mesin Kopi Barista, Sofa Utama, Sofa Sudut, Panggung Santai.
+    4. *Lobi & Koridor Transit*: Titik sambut dan koordinasi antar tim.
+  - Fase siklus kegiatan diperluas hingga Sesi Evaluasi & Sharing Tech, dilengkapi sinkronisasi obrolan cerdas dan animasi gerak realistis.
 
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
+
