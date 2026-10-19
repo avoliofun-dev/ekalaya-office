@@ -61,21 +61,8 @@ export default function VirtualOffice() {
 
   // 24-HOUR SIMULATION ENGINE STATE
   const simulationEngineRef = useRef(null);
-  const [simulatedTimeStr, setSimulatedTimeStr] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("ekalaya_sim_minutes");
-      if (stored) return minutesToTimeString(parseFloat(stored));
-      const now = new Date();
-      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    }
-    return "08:30";
-  });
-  const [isTimeAccelerated, setIsTimeAccelerated] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("ekalaya_sim_accelerated") === "true";
-    }
-    return false;
-  });
+  const [simulatedTimeStr, setSimulatedTimeStr] = useState("08:30");
+  const [isTimeAccelerated, setIsTimeAccelerated] = useState(false); // false = Realtime, true = 1 hari = 10 menit
   const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
   const [npcListState, setNpcListState] = useState([]);
 
@@ -125,9 +112,21 @@ export default function VirtualOffice() {
 
   // Client-side initialization of user id and saved name
   useEffect(() => {
+    // Client-side initialization of user id, saved name, and simulation time
     const savedName = localStorage.getItem("ekalaya_name");
     if (savedName) setPlayerName(savedName);
     setUserId("user_" + Math.random().toString(36).substring(2, 8));
+
+    // Hydrate simulation time & accelerated state safely on client
+    const savedAcc = localStorage.getItem("ekalaya_sim_accelerated") === "true";
+    setIsTimeAccelerated(savedAcc);
+    const savedSim = localStorage.getItem("ekalaya_sim_minutes");
+    if (savedSim) {
+      setSimulatedTimeStr(minutesToTimeString(parseFloat(savedSim)));
+    } else {
+      const now = new Date();
+      setSimulatedTimeStr(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+    }
 
     // Detect mobile / touch capability
     if (typeof window !== "undefined") {
@@ -1084,10 +1083,11 @@ export default function VirtualOffice() {
                 {isTimeAccelerated ? "⚡" : "🕒"}
               </span>
               <div className="text-left flex items-center gap-2">
-                <span className="font-bold text-white tracking-wide text-xs">
+                <span suppressHydrationWarning className="font-bold text-white tracking-wide text-xs">
                   {simulatedTimeStr} WIB
                 </span>
                 <span
+                  suppressHydrationWarning
                   className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1 border ${
                     isTimeAccelerated
                       ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
