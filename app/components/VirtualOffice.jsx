@@ -47,6 +47,7 @@ import {
   SkipForward,
   RotateCcw,
   RotateCw,
+  Map as MapIcon,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -195,19 +196,37 @@ export default function VirtualOffice() {
     }
   };
 
-  // Reset or set camera preset angle
+  // Top-down camera view state & toggle function
+  const [isTopDownView, setIsTopDownView] = useState(false);
+
+  // Reset or set camera preset angle (Bidirectional Toggle for Top-Down)
+  const toggleCameraTopDown = () => {
+    if (!isTopDownView) {
+      cameraAngle.current.phi = 1.45; // Top-down bird's-eye view
+      setIsTopDownView(true);
+      addSystemMessage("🗺️ Sudut Pandang: Top-Down (Denah Atas)");
+    } else {
+      cameraAngle.current.phi = 0.45; // Kembali ke sudut 3D isometrik / normal
+      setIsTopDownView(false);
+      addSystemMessage("🏢 Sudut Pandang: Normal 3D Isometrik");
+    }
+  };
+
   const setCameraViewPreset = (preset) => {
     if (preset === "front") {
       cameraAngle.current.theta = 0;
       cameraAngle.current.phi = 0.45;
+      setIsTopDownView(false);
     } else if (preset === "side") {
       cameraAngle.current.theta = Math.PI / 2;
       cameraAngle.current.phi = 0.45;
+      setIsTopDownView(false);
     } else if (preset === "back") {
       cameraAngle.current.theta = Math.PI;
       cameraAngle.current.phi = 0.45;
+      setIsTopDownView(false);
     } else if (preset === "top") {
-      cameraAngle.current.phi = 1.45; // Top-down bird's-eye view
+      toggleCameraTopDown();
     }
   };
 
@@ -1132,28 +1151,28 @@ export default function VirtualOffice() {
             </div>
           ) : <div />}
 
-          {/* TOP RIGHT: CONTROLS & WORKSPACE INFO (DI BARIS KANAN ATAS) */}
-          <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
-            {/* TOGGLE CLEAN UI */}
-            <button
-              onClick={() => setIsCleanUIMode(!isCleanUIMode)}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95 ${
-                isCleanUIMode
-                  ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
-                  : "bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60"
-              }`}
-              title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
-            >
-              {isCleanUIMode ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-cyan-400" />}
-              <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
-            </button>
+          {/* TOP RIGHT: CONTROLS & WORKSPACE INFO (DIKELOMPOKKAN SECARA RAPI BERDASARKAN FUNGSI) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap justify-end">
+            {/* GRUP 1: MODE TAMPILAN (CLEAN UI & PRESENCE) */}
+            <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
+              {/* TOGGLE CLEAN UI */}
+              <button
+                onClick={() => setIsCleanUIMode(!isCleanUIMode)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold transition-all active:scale-95 ${
+                  isCleanUIMode
+                    ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
+                    : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60"
+                }`}
+                title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
+              >
+                {isCleanUIMode ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-cyan-400" />}
+                <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
+              </button>
 
-            {!isCleanUIMode && (
-              <>
-                {/* TOMBOL MASUK / KELUAR DARI KANTOR */}
+              {!isCleanUIMode && (
                 <button
                   onClick={toggleOfficePresence}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-bold transition-all shadow-md active:scale-95 border ${
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all active:scale-95 border ${
                     isInOffice
                       ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
                       : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
@@ -1163,102 +1182,128 @@ export default function VirtualOffice() {
                   {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
                   <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
                 </button>
+              )}
+            </div>
 
-                {/* FULLSCREEN TOGGLE */}
-                <button
-                  onClick={toggleFullscreen}
-                  className="flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
-                  title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
-                >
-                  {isFullscreen ? <Minimize className="w-3 h-3 text-emerald-400" /> : <Maximize className="w-3 h-3 text-cyan-400" />}
-                </button>
+            {!isCleanUIMode && (
+              <>
+                {/* GRUP 2: NAVIGASI KAMERA & SUDUT PANDANG (CAMERA & VIEW DOCK) */}
+                <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-cyan-500/30 shadow-lg gap-0.5 sm:gap-1">
+                  {/* TOP-DOWN / ISOMETRIC TOGGLE */}
+                  <button
+                    onClick={toggleCameraTopDown}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                      isTopDownView
+                        ? "bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-500/30"
+                        : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700/60"
+                    }`}
+                    title={isTopDownView ? "Kembali ke Tampilan 3D Normal" : "Ubah ke Tampilan Top-Down (Denah Atas)"}
+                  >
+                    <MapIcon className="w-3 h-3 text-cyan-300" />
+                    <span className="hidden md:inline">{isTopDownView ? "Top-Down" : "3D View"}</span>
+                  </button>
 
-                {/* DAY / NIGHT MODE TOGGLE */}
-                <button
-                  onClick={() => setIsDayMode(!isDayMode)}
-                  className={`p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95 ${
-                    isDayMode
-                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
-                      : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
-                  }`}
-                  title={isDayMode ? "Mode Malam" : "Mode Siang"}
-                >
-                  {isDayMode ? <Sun className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3 h-3 text-cyan-300" />}
-                </button>
+                  {/* QUICK ROTATE 45° BUTTONS */}
+                  <button
+                    onClick={() => rotateCamera(Math.PI / 4)}
+                    className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
+                    title="Putar Ruangan ke Kiri 45°"
+                  >
+                    <RotateCcw className="w-3 h-3 text-cyan-400" />
+                  </button>
+                  <button
+                    onClick={() => rotateCamera(-Math.PI / 4)}
+                    className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
+                    title="Putar Ruangan ke Kanan 45°"
+                  >
+                    <RotateCw className="w-3 h-3 text-cyan-400" />
+                  </button>
 
-                {/* QUICK ROTATE ROOM 360 BUTTONS */}
-                <button
-                  onClick={() => rotateCamera(Math.PI / 4)}
-                  className="flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
-                  title="Putar Ruangan ke Kiri (45°)"
-                >
-                  <RotateCcw className="w-3 h-3 text-cyan-400" />
-                  <span className="hidden md:inline">Putar ↺</span>
-                </button>
-                <button
-                  onClick={() => rotateCamera(-Math.PI / 4)}
-                  className="flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
-                  title="Putar Ruangan ke Kanan (45°)"
-                >
-                  <RotateCw className="w-3 h-3 text-cyan-400" />
-                  <span className="hidden md:inline">Putar ↻</span>
-                </button>
+                  {/* ZOOM LEVEL TOGGLE */}
+                  <button
+                    onClick={() => {
+                      if (zoomLevel === 1) setZoomLevel(1.5);
+                      else if (zoomLevel === 1.5) setZoomLevel(0.7);
+                      else setZoomLevel(1);
+                    }}
+                    className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] md:text-xs font-semibold transition-all active:scale-95"
+                    title="Jarak Pandang (Luas / Dekat / Normal)"
+                  >
+                    <Maximize2 className="w-3 h-3 text-cyan-400" />
+                    <span className="hidden lg:inline">
+                      {zoomLevel === 1.5 ? "Luas" : zoomLevel === 0.7 ? "Dekat" : "Normal"}
+                    </span>
+                  </button>
 
-                {/* SUARA LATAR ORANG KERJA (OFFICE AMBIENCE SOUND TOGGLE) */}
-                <button
-                  onClick={toggleAmbienceSound}
-                  className={`flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95 border ${
-                    isAmbiencePlaying
-                      ? "bg-cyan-500/25 text-cyan-300 border-cyan-500/50 hover:bg-cyan-500/35"
-                      : "bg-slate-900/80 text-slate-400 border-slate-700/60 hover:text-white"
-                  }`}
-                  title={isAmbiencePlaying ? "Matikan Suara Latar Kantor" : "Nyalakan Suara Latar Kantor (AC, Keyboard, Mouse)"}
-                >
-                  {isAmbiencePlaying ? (
-                    <Volume2 className="w-3 h-3 text-cyan-400 animate-pulse" />
-                  ) : (
-                    <VolumeX className="w-3 h-3 text-slate-400" />
-                  )}
-                  <span className="hidden sm:inline">{isAmbiencePlaying ? "Suara ON" : "Suara"}</span>
-                </button>
+                  {/* FULLSCREEN TOGGLE */}
+                  <button
+                    onClick={toggleFullscreen}
+                    className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
+                    title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
+                  >
+                    {isFullscreen ? <Minimize className="w-3 h-3 text-emerald-400" /> : <Maximize className="w-3 h-3 text-cyan-400" />}
+                  </button>
+                </div>
 
-                {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
-                <button
-                  onClick={() => {
-                    if (zoomLevel === 1) setZoomLevel(1.5);
-                    else if (zoomLevel === 1.5) setZoomLevel(0.7);
-                    else setZoomLevel(1);
-                  }}
-                  className="hidden sm:flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
-                  title="Jarak Pandang (Luas / Dekat / Normal)"
-                >
-                  <Maximize2 className="w-3 h-3 text-cyan-400" />
-                  <span className="hidden md:inline">
-                    {zoomLevel === 1.5 ? "Luas" : zoomLevel === 0.7 ? "Dekat" : "Normal"}
-                  </span>
-                </button>
+                {/* GRUP 3: SUASANA & AUDIO (ENVIRONMENT & AMBIENCE) */}
+                <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
+                  {/* DAY / NIGHT MODE TOGGLE */}
+                  <button
+                    onClick={() => setIsDayMode(!isDayMode)}
+                    className={`p-1 md:px-2 md:py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                      isDayMode
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30"
+                        : "bg-slate-800/80 text-slate-200 border-slate-700/60 hover:bg-slate-700"
+                    }`}
+                    title={isDayMode ? "Mode Malam" : "Mode Siang"}
+                  >
+                    {isDayMode ? <Sun className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3 h-3 text-cyan-300" />}
+                  </button>
 
-                {/* DAFTAR ANGGOTA */}
-                <button
-                  onClick={() => {
-                    if (simulationEngineRef.current) {
-                      setNpcListState(Array.from(simulationEngineRef.current.npcStates.values()));
-                    }
-                    setIsMemberListOpen(!isMemberListOpen);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
-                >
-                  <Users className="w-3 h-3 text-cyan-400" />
-                  <span>({npcListState.length + 1 + connectedPeersCount})</span>
-                </button>
+                  {/* AMBIENCE SOUND TOGGLE */}
+                  <button
+                    onClick={toggleAmbienceSound}
+                    className={`flex items-center gap-1 p-1 md:px-2 md:py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                      isAmbiencePlaying
+                        ? "bg-cyan-500/25 text-cyan-300 border-cyan-500/50 hover:bg-cyan-500/35"
+                        : "bg-slate-800/80 text-slate-400 border-slate-700/60 hover:text-white"
+                    }`}
+                    title={isAmbiencePlaying ? "Matikan Suara Latar Kantor" : "Nyalakan Suara Latar Kantor (AC, Keyboard, Mouse)"}
+                  >
+                    {isAmbiencePlaying ? (
+                      <Volume2 className="w-3 h-3 text-cyan-400 animate-pulse" />
+                    ) : (
+                      <VolumeX className="w-3 h-3 text-slate-400" />
+                    )}
+                    <span className="hidden sm:inline">{isAmbiencePlaying ? "Suara ON" : "Suara"}</span>
+                  </button>
+                </div>
 
-                <button
-                  onClick={() => setIsHelpOpen(true)}
-                  className="hidden sm:block p-1.5 md:p-2 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-md active:scale-95"
-                  title="Panduan Kontrol"
-                >
-                  <HelpCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                </button>
+                {/* GRUP 4: ANGGOTA & PANDUAN (MEMBERS & HELP) */}
+                <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
+                  {/* DAFTAR ANGGOTA */}
+                  <button
+                    onClick={() => {
+                      if (simulationEngineRef.current) {
+                        setNpcListState(Array.from(simulationEngineRef.current.npcStates.values()));
+                      }
+                      setIsMemberListOpen(!isMemberListOpen);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] md:text-xs font-semibold transition-all active:scale-95"
+                    title="Daftar Karyawan & Rekan Kantor"
+                  >
+                    <Users className="w-3 h-3 text-cyan-400" />
+                    <span>({npcListState.length + 1 + connectedPeersCount})</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsHelpOpen(true)}
+                    className="hidden sm:block p-1 md:p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-all active:scale-95"
+                    title="Panduan Kontrol"
+                  >
+                    <HelpCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -1634,128 +1679,129 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* BOTTOM FLOATING CONTROLS DOCK (Hanya tampilkan Emote jika Clean UI Mode aktif) */}
-      <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 md:gap-2 bg-slate-900/90 backdrop-blur-xl px-3 md:px-5 py-2 md:py-3 rounded-2xl md:rounded-3xl border border-slate-700/80 shadow-2xl max-w-[95vw] overflow-x-auto">
+      {/* BOTTOM FLOATING CONTROLS DOCK (DIKELOMPOKKAN SECARA VISUAL DENGAN SUB-CONTAINER ELEGAN) */}
+      <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl p-1.5 md:p-2 rounded-2xl md:rounded-3xl border border-slate-700/80 shadow-2xl max-w-[96vw] overflow-x-auto">
         {!isCleanUIMode && (
-          <>
+          <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
             {/* Mic Toggle */}
             <button
               onClick={() => setIsMuted(!isMuted)}
-              className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+              className={`p-2 md:p-2.5 rounded-lg md:rounded-xl transition-all shadow-md active:scale-95 ${
                 isMuted
                   ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
                   : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
               }`}
               title={isMuted ? "Nyalakan Mikrofon" : "Matikan Mikrofon (Muted)"}
             >
-              {isMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
+              {isMuted ? <MicOff className="w-4 h-4 md:w-4.5 md:h-4.5 text-rose-400" /> : <Mic className="w-4 h-4 md:w-4.5 md:h-4.5" />}
             </button>
 
             {/* Video Toggle */}
             <button
               onClick={() => setIsVideoOn(!isVideoOn)}
-              className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+              className={`p-2 md:p-2.5 rounded-lg md:rounded-xl transition-all shadow-md active:scale-95 ${
                 !isVideoOn
                   ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
                   : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
               }`}
               title={isVideoOn ? "Matikan Kamera" : "Nyalakan Kamera"}
             >
-              {!isVideoOn ? <VideoOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Video className="w-4 h-4 md:w-5 md:h-5" />}
+              {!isVideoOn ? <VideoOff className="w-4 h-4 md:w-4.5 md:h-4.5 text-rose-400" /> : <Video className="w-4 h-4 md:w-4.5 md:h-4.5" />}
             </button>
 
             {/* Screen Share Toggle */}
             <button
               onClick={() => setActiveScreenShare(!activeScreenShare)}
-              className={`hidden sm:flex p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+              className={`hidden sm:flex p-2 md:p-2.5 rounded-lg md:rounded-xl transition-all shadow-md active:scale-95 ${
                 activeScreenShare
                   ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30"
                   : "bg-slate-800 hover:bg-slate-700 text-slate-300"
               }`}
               title="Berbagi Layar (Screen Share)"
             >
-              <Monitor className="w-4 h-4 md:w-5 md:h-5" />
+              <Monitor className="w-4 h-4 md:w-4.5 md:h-4.5" />
             </button>
-
-            <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
-          </>
+          </div>
         )}
 
-        {/* Emote 1: Wave */}
-        <button
-          onClick={() => triggerEmote("wave")}
-          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
-          title="Lambaikan Tangan (Wave)"
-        >
-          <span>👋</span>
-          <span className="hidden lg:inline text-[10px]">Halo</span>
-        </button>
+        {/* SUB-GRUP B: 5 EMOTE INTERAKTIF */}
+        <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
+          {/* Emote 1: Wave */}
+          <button
+            onClick={() => triggerEmote("wave")}
+            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+            title="Lambaikan Tangan (Wave)"
+          >
+            <span>👋</span>
+            <span className="hidden lg:inline text-[10px] font-medium">Halo</span>
+          </button>
 
-        {/* Emote 2: Cheer */}
-        <button
-          onClick={() => triggerEmote("cheer")}
-          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
-          title="Tepuk Tangan (Cheer)"
-        >
-          <span>🎉</span>
-          <span className="hidden lg:inline text-[10px]">Tepuk</span>
-        </button>
+          {/* Emote 2: Cheer */}
+          <button
+            onClick={() => triggerEmote("cheer")}
+            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+            title="Tepuk Tangan (Cheer)"
+          >
+            <span>🎉</span>
+            <span className="hidden lg:inline text-[10px] font-medium">Tepuk</span>
+          </button>
 
-        {/* Emote 3: Dance Disco */}
-        <button
-          onClick={() => triggerEmote("dance")}
-          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-purple-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
-          title="Joget Disco (Dance)"
-        >
-          <span>💃</span>
-          <span className="hidden lg:inline text-[10px]">Joget</span>
-        </button>
+          {/* Emote 3: Dance Disco */}
+          <button
+            onClick={() => triggerEmote("dance")}
+            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+            title="Joget Disco (Dance)"
+          >
+            <span>💃</span>
+            <span className="hidden lg:inline text-[10px] font-medium">Joget</span>
+          </button>
 
-        {/* Emote 4: Spin 360 */}
-        <button
-          onClick={() => triggerEmote("spin")}
-          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
-          title="Putar 360 (Spin)"
-        >
-          <span>🌀</span>
-          <span className="hidden lg:inline text-[10px]">Spin</span>
-        </button>
+          {/* Emote 4: Spin 360 */}
+          <button
+            onClick={() => triggerEmote("spin")}
+            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+            title="Putar 360 (Spin)"
+          >
+            <span>🌀</span>
+            <span className="hidden lg:inline text-[10px] font-medium">Spin</span>
+          </button>
 
-        {/* Emote 5: Coffee Break */}
-        <button
-          onClick={() => triggerEmote("coffee")}
-          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95"
-          title="Istirahat Kopi di Pantry"
-        >
-          <Coffee className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
+          {/* Emote 5: Coffee Break */}
+          <button
+            onClick={() => triggerEmote("coffee")}
+            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95 flex items-center gap-1"
+            title="Istirahat Kopi di Pantry"
+          >
+            <Coffee className="w-4 h-4" />
+            <span className="hidden lg:inline text-[10px] font-medium">Kopi</span>
+          </button>
+        </div>
 
         {!isCleanUIMode && (
-          <>
-            <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
-
+          <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
             {/* Customize Avatar Button */}
             <button
               onClick={() => setIsCustomizing(true)}
-              className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
+              className="p-2 md:p-2.5 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
               title="Ganti Baju & Pengaturan Profil"
             >
-              <Settings className="w-4 h-4 md:w-5 md:h-5" />
+              <Settings className="w-4 h-4 md:w-4.5 md:h-4.5" />
             </button>
 
             {/* Chat Toggle */}
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+              className={`p-2 md:p-2.5 rounded-lg md:rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 ${
                 isChatOpen
                   ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25"
                   : "bg-slate-800 hover:bg-slate-700 text-slate-300"
               }`}
               title="Buka/Tutup Chat Kantor"
             >
-              <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
+              <MessageSquare className="w-4 h-4 md:w-4.5 md:h-4.5" />
+              <span className="hidden sm:inline text-[11px] font-semibold">Chat</span>
             </button>
-          </>
+          </div>
         )}
       </div>
 
@@ -1920,16 +1966,21 @@ export default function VirtualOffice() {
               <RotateCw className="w-5 h-5" />
             </button>
             <button
-              onTouchStart={(e) => { e.preventDefault(); setCameraViewPreset("top"); }}
-              onClick={() => setCameraViewPreset("top")}
-              className="px-2 py-2 rounded-xl bg-slate-800 border border-slate-700 text-[10px] font-bold text-cyan-300 active:bg-cyan-600 shadow-md"
-              title="Lihat Dari Atas (Top-Down)"
+              onTouchStart={(e) => { e.preventDefault(); toggleCameraTopDown(); }}
+              onClick={toggleCameraTopDown}
+              className={`px-2.5 py-2 rounded-xl border text-[10px] font-bold transition-all shadow-md active:scale-95 flex items-center gap-1 ${
+                isTopDownView
+                  ? "bg-cyan-500 text-white border-cyan-400 shadow-cyan-500/30"
+                  : "bg-slate-800 border-slate-700 text-cyan-300 active:bg-cyan-600"
+              }`}
+              title={isTopDownView ? "Kembali ke Normal 3D" : "Lihat Dari Atas (Top-Down)"}
             >
-              Top-Down
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>{isTopDownView ? "3D" : "Top"}</span>
             </button>
           </div>
           <span className="text-[9px] bg-slate-900/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">
-            Geser layar atau tekan ↺ ↻ untuk putar
+            {isTopDownView ? "Mode Denah Top-Down Aktif" : "Geser layar atau tekan ↺ ↻ untuk putar"}
           </span>
         </div>
       )}

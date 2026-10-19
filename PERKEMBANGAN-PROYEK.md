@@ -206,6 +206,25 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
   - Ditambahkan tombol toggle audio **Suara (🔊/🔇)** di baris atas header web.
   - Pengguna bebas menyalakan atau mematikan suara latar kapan saja dengan sekali sentuh/klik.
 
+## 📅 Tahap 18: Perbaikan Toggle Top-Down 2-Arah & Pengelompokan UI Terstruktur
+* **Penyelesaian Masalah Tombol Top-Down**:
+  - **Penyebab**: Sudut kamera sebelumnya hanya diset satu arah (`phi = 1.45`), sehingga setelah diklik sekali tidak ada logika untuk kembali ke sudut normal.
+  - **Solusi**: Dibuat fungsi `toggleCameraTopDown` 2-arah dengan state reaktif `isTopDownView`:
+    1. Klik ke-1: Beralih ke **Top-Down (Denah Atas)**.
+    2. Klik ke-2: Otomatis kembali ke **Normal 3D Isometrik**.
+    3. Dilengkapi indikator visual aktif menyala (cyan highlight) dan notifikasi sistem interaktif.
+    4. Tersedia baik di bar kontrol header (desktop & tablet) maupun quick button mobile.
+* **Pengelompokan Tombol UI (Categorized Segmented Groups)**:
+  - Header atas ditata rapi dalam 4 sub-kelompok berbingkai semi-transparan:
+    1. **Tampilan & Presensi**: Toggle Sembunyikan UI (Clean Mode) & Masuk/Keluar Kantor.
+    2. **Kamera & View**: Toggle Top-Down/3D, Putar ↺ ↻ 45°, Jarak Pandang (Zoom), dan Fullscreen.
+    3. **Suasana & Audio**: Mode Siang/Malam (Sun/Moon) & Suara Latar Kantor (Office Ambience).
+    4. **Anggota & Bantuan**: Panel Daftar Anggota & Modal Panduan.
+  - Dock kontrol bawah dikelompokkan ke dalam 3 sub-grup elegan:
+    1. **Sub-grup A (Audio/Video/Share)**: Mikrofon, Kamera, dan Berbagi Layar proyektor.
+    2. **Sub-grup B (5 Emote Interaktif)**: 👋 Halo, 🎉 Tepuk, 💃 Joget Disco, 🌀 Spin 360, ☕ Kopi.
+    3. **Sub-grup C (Profil & Komunikasi)**: Kustomisasi Avatar (Baju & Status) dan Obrolan Kantor (Chat Drawer).
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
