@@ -1128,71 +1128,39 @@ export default function VirtualOffice() {
 
       {/* TOP HEADER: BRAND, WORK CYCLE HUD & ACTIONS */}
       <header className="absolute top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-2 pointer-events-none z-20">
-        {/* ROW 1: BRAND LOGO (KIRI) & ACTIONS (KANAN) PADA MOBILE */}
-        <div className="w-full md:w-auto flex items-center justify-between pointer-events-none">
-          {!isCleanUIMode ? (
-            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
-              <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg md:rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xs md:text-base shadow-lg shadow-cyan-500/25 text-white">
-                E
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h1 className="text-[10px] md:text-xs font-bold tracking-tight text-white truncate max-w-[110px] sm:max-w-none">EKALAYA 3D</h1>
-                  <span className="flex items-center gap-0.5 text-[8px] md:text-[9px] uppercase font-bold tracking-wider px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    <Wifi className="w-2 h-2 animate-pulse" />
-                    LIVE
-                  </span>
+        {/* ROW 1: BRAND LOGO (KIRI) & REST OF CONTROLS (KIRI/TENGAH) + PENGATURAN (KANAN) */}
+        <div className="w-full flex items-center justify-between pointer-events-none gap-2">
+          {/* SISI KIRI: BRAND LOGO + KELOMPOK KAMERA / VIEW + SUASANA & AUDIO */}
+          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
+            {!isCleanUIMode && (
+              <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl md:rounded-2xl border border-slate-700/60 shadow-xl">
+                <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xs md:text-sm shadow-md shadow-cyan-500/25 text-white">
+                  E
                 </div>
-                <div className="flex items-center gap-1 text-[9px] md:text-[11px] text-slate-400">
-                  <Compass className="w-2.5 h-2.5 text-cyan-400" />
-                  <span className="truncate max-w-[100px] sm:max-w-none">{currentZone}</span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h1 className="text-[10px] md:text-xs font-bold tracking-tight text-white truncate max-w-[100px] sm:max-w-none">EKALAYA 3D</h1>
+                    <span className="flex items-center gap-0.5 text-[8px] uppercase font-bold tracking-wider px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <Wifi className="w-2 h-2 animate-pulse" />
+                      LIVE
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[9px] text-slate-400">
+                    <Compass className="w-2.5 h-2.5 text-cyan-400" />
+                    <span className="truncate max-w-[90px] sm:max-w-none">{currentZone}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : <div />}
-
-          {/* TOP RIGHT: CONTROLS & WORKSPACE INFO (DIKELOMPOKKAN SECARA RAPI BERDASARKAN FUNGSI) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap justify-end">
-            {/* GRUP 1: MODE TAMPILAN (CLEAN UI & PRESENCE) */}
-            <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
-              {/* TOGGLE CLEAN UI */}
-              <button
-                onClick={() => setIsCleanUIMode(!isCleanUIMode)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold transition-all active:scale-95 ${
-                  isCleanUIMode
-                    ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
-                    : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60"
-                }`}
-                title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
-              >
-                {isCleanUIMode ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-cyan-400" />}
-                <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
-              </button>
-
-              {!isCleanUIMode && (
-                <button
-                  onClick={toggleOfficePresence}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all active:scale-95 border ${
-                    isInOffice
-                      ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
-                      : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
-                  }`}
-                  title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
-                >
-                  {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
-                  <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
-                </button>
-              )}
-            </div>
+            )}
 
             {!isCleanUIMode && (
               <>
-                {/* GRUP 2: NAVIGASI KAMERA & SUDUT PANDANG (CAMERA & VIEW DOCK) */}
+                {/* KELOMPOK KAMERA & SUDUT PANDANG (VIEW DOCK DI SISI KIRI) */}
                 <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-cyan-500/30 shadow-lg gap-0.5 sm:gap-1">
                   {/* TOP-DOWN / ISOMETRIC TOGGLE */}
                   <button
                     onClick={toggleCameraTopDown}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
                       isTopDownView
                         ? "bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-500/30"
                         : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700/60"
@@ -1200,7 +1168,7 @@ export default function VirtualOffice() {
                     title={isTopDownView ? "Kembali ke Tampilan 3D Normal" : "Ubah ke Tampilan Top-Down (Denah Atas)"}
                   >
                     <MapIcon className="w-3 h-3 text-cyan-300" />
-                    <span className="hidden md:inline">{isTopDownView ? "Top-Down" : "3D View"}</span>
+                    <span className="hidden md:inline">{isTopDownView ? "Top-Down" : "3D"}</span>
                   </button>
 
                   {/* QUICK ROTATE 45° BUTTONS */}
@@ -1226,7 +1194,7 @@ export default function VirtualOffice() {
                       else if (zoomLevel === 1.5) setZoomLevel(0.7);
                       else setZoomLevel(1);
                     }}
-                    className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] md:text-xs font-semibold transition-all active:scale-95"
+                    className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
                     title="Jarak Pandang (Luas / Dekat / Normal)"
                   >
                     <Maximize2 className="w-3 h-3 text-cyan-400" />
@@ -1245,12 +1213,12 @@ export default function VirtualOffice() {
                   </button>
                 </div>
 
-                {/* GRUP 3: SUASANA & AUDIO (ENVIRONMENT & AMBIENCE) */}
+                {/* KELOMPOK SUASANA & AUDIO */}
                 <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
                   {/* DAY / NIGHT MODE TOGGLE */}
                   <button
                     onClick={() => setIsDayMode(!isDayMode)}
-                    className={`p-1 md:px-2 md:py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                    className={`p-1 md:px-1.5 md:py-1 rounded-lg text-[10px] font-semibold transition-all active:scale-95 border ${
                       isDayMode
                         ? "bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30"
                         : "bg-slate-800/80 text-slate-200 border-slate-700/60 hover:bg-slate-700"
@@ -1263,7 +1231,7 @@ export default function VirtualOffice() {
                   {/* AMBIENCE SOUND TOGGLE */}
                   <button
                     onClick={toggleAmbienceSound}
-                    className={`flex items-center gap-1 p-1 md:px-2 md:py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                    className={`flex items-center gap-1 p-1 md:px-1.5 md:py-1 rounded-lg text-[10px] font-semibold transition-all active:scale-95 border ${
                       isAmbiencePlaying
                         ? "bg-cyan-500/25 text-cyan-300 border-cyan-500/50 hover:bg-cyan-500/35"
                         : "bg-slate-800/80 text-slate-400 border-slate-700/60 hover:text-white"
@@ -1275,12 +1243,9 @@ export default function VirtualOffice() {
                     ) : (
                       <VolumeX className="w-3 h-3 text-slate-400" />
                     )}
-                    <span className="hidden sm:inline">{isAmbiencePlaying ? "Suara ON" : "Suara"}</span>
+                    <span className="hidden sm:inline">{isAmbiencePlaying ? "Suara" : "Mute"}</span>
                   </button>
-                </div>
 
-                {/* GRUP 4: ANGGOTA & PANDUAN (MEMBERS & HELP) */}
-                <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
                   {/* DAFTAR ANGGOTA */}
                   <button
                     onClick={() => {
@@ -1289,7 +1254,7 @@ export default function VirtualOffice() {
                       }
                       setIsMemberListOpen(!isMemberListOpen);
                     }}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] md:text-xs font-semibold transition-all active:scale-95"
+                    className="flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
                     title="Daftar Karyawan & Rekan Kantor"
                   >
                     <Users className="w-3 h-3 text-cyan-400" />
@@ -1298,14 +1263,60 @@ export default function VirtualOffice() {
 
                   <button
                     onClick={() => setIsHelpOpen(true)}
-                    className="hidden sm:block p-1 md:p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-all active:scale-95"
+                    className="hidden sm:block p-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-all active:scale-95"
                     title="Panduan Kontrol"
                   >
-                    <HelpCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                    <HelpCircle className="w-3 h-3" />
                   </button>
                 </div>
               </>
             )}
+          </div>
+
+          {/* SISI KANAN: KELOMPOK PENGATURAN (SETTINGS, PRESENCE, CLEAN UI) - UKURAN COMPACT & RAPI */}
+          <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
+            {/* KELOMPOK PENGATURAN & AKUN (DI KANAN) */}
+            <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
+              {/* TOMBOL PENGATURAN UTAMA (COMPACT & PROPORSIONAL) */}
+              <button
+                onClick={() => setIsCustomizing(true)}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/70 text-[10px] md:text-xs font-semibold transition-all active:scale-95 shadow-sm"
+                title="Pengaturan Profil, Nama & Outfit"
+              >
+                <Settings className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Pengaturan</span>
+              </button>
+
+              {/* TOGGLE CLEAN UI */}
+              <button
+                onClick={() => setIsCleanUIMode(!isCleanUIMode)}
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold transition-all active:scale-95 ${
+                  isCleanUIMode
+                    ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
+                    : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60"
+                }`}
+                title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
+              >
+                {isCleanUIMode ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-cyan-400" />}
+                <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
+              </button>
+
+              {/* MASUK / KELUAR KANTOR (PRESENCE) */}
+              {!isCleanUIMode && (
+                <button
+                  onClick={toggleOfficePresence}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all active:scale-95 border ${
+                    isInOffice
+                      ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
+                      : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
+                  }`}
+                  title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
+                >
+                  {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
+                  <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
