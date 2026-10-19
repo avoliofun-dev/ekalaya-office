@@ -141,9 +141,20 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
   - Tersedia tombol interaktif di header atas: **"Keluar Kantor" (merah)** dan **"Masuk Kantor" (hijau)**.
   - Saat Owner menekan *Keluar Kantor*, status berubah menjadi *Away*, avatar menghilang/keluar ruangan, dan muncul banner status elegan.
   - 4 pegawai tetap terlihat hidup dan aktif bekerja menjalankan sekejul kantor.
-  - Saat menekan *Masuk Kantor*, avatar kembali muncul di lobi dengan efek selebrasi konfeti meriah! 🎉
+## 📅 Tahap 13: Aksi Otomatis Berdasarkan Ruangan/Zona (Contextual Auto Actions) & Random Gestures
+* **Sistem Aksi Otomatis Kontekstual (Hands-Free)**:
+  - Pengguna tidak perlu lagi menekan tombol apa pun untuk melakukan kegiatan:
+    1. ☕ **Area Pantry & Sofa Lounge**: Saat avatar berdiri di area ini, avatar **otomatis duduk santai di sofa** dan tangan memegang cangkir kopi.
+    2. 📊 **Area Executive Meeting Room**: Saat avatar masuk ke ruang rapat kaca, avatar **otomatis duduk menyimak diskusi** di meja bundar.
+    3. 💻 **Area Workstation (Engineering & Product Bay)**: Saat avatar berada di dekat meja kerja, avatar **otomatis duduk dan mengetik laptop** (posisi mengetik dengan ayunan tangan dinamis).
+    4. 🏢 **Lobi & Koridor**: Saat berjalan bebas, avatar berdiri tegak dan siap berinteraksi.
+* **Random Idle Emotes & Gestures (Karakter Terasa Hidup)**:
+  - Ketika avatar berhenti berjalan selama beberapa detik, sistem otomatis memicu gerakan acak spontan yang hidup:
+    - Melambaikan tangan (Wave 👋)
+    - Bersorak apresiasi (Cheer 🎉)
+    - Berjoget disko santai (Dance 💃)
+    - Putar badan 360 derajat (Spin 🌀)
 
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
-

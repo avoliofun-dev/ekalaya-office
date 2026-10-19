@@ -672,9 +672,99 @@ export default function VirtualOffice() {
           player.userData.leftArmPivot.rotation.x = -swing;
           player.userData.rightArmPivot.rotation.x = swing;
         } else {
-          // Emote animations
+          // --- AKSI OTOMATIS BERDASARKAN RUANGAN / ZONA & RANDOM IDLE EMOTES ---
+          // Jika avatar sedang diam di suatu zona, jalankan aksi alami tanpa perlu klik tombol:
+          const pX = player.position.x;
+          const pZ = player.position.z;
+
+          // Inisialisasi timer random action di userData jika belum ada
+          if (!player.userData.randomActionTimer) {
+            player.userData.randomActionTimer = Math.floor(Math.random() * 200) + 150; // Tiap 4-6 detik
+          }
+          player.userData.randomActionTimer--;
+
+          // Pemicu Aksi Random / Spontan saat berdiam
+          if (player.userData.randomActionTimer <= 0 && (!player.userData.action || player.userData.action === "idle")) {
+            player.userData.randomActionTimer = Math.floor(Math.random() * 260) + 200;
+            // Pilih aksi acak yang seru dan natural
+            const randomChoices = ["wave", "cheer", "dance", "stretch", "spin"];
+            const chosen = randomChoices[Math.floor(Math.random() * randomChoices.length)];
+            
+            if (chosen === "wave") {
+              player.userData.action = "waving";
+              player.userData.waveTimer = 60;
+            } else if (chosen === "cheer") {
+              player.userData.action = "cheer";
+              player.userData.cheerTimer = 50;
+            } else if (chosen === "dance") {
+              player.userData.action = "dance";
+              player.userData.danceTimer = 70;
+            } else if (chosen === "spin") {
+              player.userData.action = "spin";
+              player.userData.spinTimer = 40;
+            }
+          }
+
+          // A. Deteksi Zona Lounge & Pantry (Sofa / Bar Kopi: X: 1 s/d 8.5, Z: 2 s/d 8.5)
+          const inLoungePantry = pX >= 1.0 && pX <= 8.5 && pZ >= 2.0 && pZ <= 8.5;
+          // B. Deteksi Zona Executive Meeting Room (Sekitar Meja Bundar: X: -8 s/d -1, Z: 2 s/d 8)
+          const inMeetingRoom = pX >= -8.0 && pX <= -1.0 && pZ >= 2.0 && pZ <= 8.0;
+          // C. Deteksi Zona Meja Kerja Engineering Bay (X: -8 s/d -1, Z: -8 s/d -1)
+          const inEngineeringBay = pX >= -8.0 && pX <= -1.0 && pZ >= -8.0 && pZ <= -1.0;
+          // D. Deteksi Zona Meja Kerja Product & Design Bay (X: 1 s/d 8, Z: -8 s/d -1)
+          const inProductBay = pX >= 1.0 && pX <= 8.0 && pZ >= -8.0 && pZ <= -1.0;
+
+          // Terapkan Aksi Kontekstual jika tidak sedang dalam emote khusus (wave/cheer/dance/spin)
+          const isBusyWithEmote = ["waving", "cheer", "dance", "spin"].includes(player.userData.action);
+
+          if (!isBusyWithEmote) {
+            if (inLoungePantry) {
+              // Otomatis Santai / Minum Kopi di Pantry Sofa
+              player.position.y = -0.28; // Pose duduk di sofa
+              player.userData.leftLegPivot.rotation.x = -Math.PI / 2.2;
+              player.userData.rightLegPivot.rotation.x = -Math.PI / 2.2;
+              // Tangan santai memegang cangkir kopi
+              player.userData.rightArmPivot.rotation.x = -0.8 + Math.sin(time * 3) * 0.15;
+              player.userData.rightArmPivot.rotation.z = -0.3;
+              player.userData.leftArmPivot.rotation.x = -0.4;
+              player.userData.leftArmPivot.rotation.z = 0;
+            } else if (inMeetingRoom) {
+              // Otomatis Duduk Rapat & Menyimak Diskusi di Meeting Room
+              player.position.y = -0.28;
+              player.userData.leftLegPivot.rotation.x = -Math.PI / 2.2;
+              player.userData.rightLegPivot.rotation.x = -Math.PI / 2.2;
+              player.userData.leftArmPivot.rotation.x = -0.6;
+              player.userData.rightArmPivot.rotation.x = -0.6;
+              player.userData.leftArmPivot.rotation.z = 0;
+              player.userData.rightArmPivot.rotation.z = 0;
+            } else if (inEngineeringBay || inProductBay) {
+              // Otomatis Mengetik Laptop & Coding / Desain di Workstation
+              player.position.y = 0;
+              player.userData.leftLegPivot.rotation.x = 0;
+              player.userData.rightLegPivot.rotation.x = 0;
+              player.userData.leftArmPivot.rotation.x = -1.25 + Math.sin(time * 8) * 0.08;
+              player.userData.rightArmPivot.rotation.x = -1.25 + Math.cos(time * 8) * 0.08;
+              player.userData.leftArmPivot.rotation.z = 0;
+              player.userData.rightArmPivot.rotation.z = 0;
+            } else {
+              // Lobi Kantor / Koridor: Pose Berdiri Santai
+              player.position.y = 0;
+              player.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(player.userData.leftLegPivot.rotation.x, 0, 0.2);
+              player.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(player.userData.rightLegPivot.rotation.x, 0, 0.2);
+              player.userData.leftArmPivot.rotation.x = THREE.MathUtils.lerp(player.userData.leftArmPivot.rotation.x, 0, 0.2);
+              player.userData.rightArmPivot.rotation.x = THREE.MathUtils.lerp(player.userData.rightArmPivot.rotation.x, 0, 0.2);
+              player.userData.leftArmPivot.rotation.z = THREE.MathUtils.lerp(player.userData.leftArmPivot.rotation.z, 0, 0.2);
+              player.userData.rightArmPivot.rotation.z = THREE.MathUtils.lerp(player.userData.rightArmPivot.rotation.z, 0, 0.2);
+              player.userData.torso.position.y = 1.05 + Math.sin(time * 2) * 0.02;
+            }
+          }
+
+          // Emote animations (Wave, Cheer, Dance, Spin)
           if (player.userData.action === "waving") {
             player.userData.waveTimer--;
+            player.position.y = 0;
+            player.userData.leftLegPivot.rotation.x = 0;
+            player.userData.rightLegPivot.rotation.x = 0;
             player.userData.rightArmPivot.rotation.x = 0;
             player.userData.rightArmPivot.rotation.z = Math.sin(time * 15) * 0.5 + 2.5;
             if (player.userData.waveTimer <= 0) {
@@ -683,6 +773,9 @@ export default function VirtualOffice() {
             }
           } else if (player.userData.action === "cheer") {
             player.userData.cheerTimer--;
+            player.position.y = 0;
+            player.userData.leftLegPivot.rotation.x = 0;
+            player.userData.rightLegPivot.rotation.x = 0;
             player.userData.leftArmPivot.rotation.z = -2.3 + Math.sin(time * 20) * 0.3;
             player.userData.rightArmPivot.rotation.z = 2.3 + Math.sin(time * 20) * 0.3;
             if (player.userData.cheerTimer <= 0) {
@@ -692,6 +785,7 @@ export default function VirtualOffice() {
             }
           } else if (player.userData.action === "dance") {
             player.userData.danceTimer--;
+            player.position.y = 0;
             player.rotation.y += delta * 4; // Fun disco spin
             player.userData.torso.position.y = 1.05 + Math.abs(Math.sin(time * 10)) * 0.25;
             player.userData.leftArmPivot.rotation.z = Math.sin(time * 12) * 1.5 - 1.0;
@@ -704,17 +798,11 @@ export default function VirtualOffice() {
             }
           } else if (player.userData.action === "spin") {
             player.userData.spinTimer--;
+            player.position.y = 0;
             player.rotation.y += delta * 12; // 360 fast spin
             if (player.userData.spinTimer <= 0) {
               player.userData.action = "idle";
             }
-          } else {
-            player.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(player.userData.leftLegPivot.rotation.x, 0, 0.2);
-            player.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(player.userData.rightLegPivot.rotation.x, 0, 0.2);
-            player.userData.leftArmPivot.rotation.x = THREE.MathUtils.lerp(player.userData.leftArmPivot.rotation.x, 0, 0.2);
-            player.userData.rightArmPivot.rotation.x = THREE.MathUtils.lerp(player.userData.rightArmPivot.rotation.x, 0, 0.2);
-            player.userData.leftArmPivot.rotation.z = THREE.MathUtils.lerp(player.userData.leftArmPivot.rotation.z, 0, 0.2);
-            player.userData.rightArmPivot.rotation.z = THREE.MathUtils.lerp(player.userData.rightArmPivot.rotation.z, 0, 0.2);
           }
         }
 
