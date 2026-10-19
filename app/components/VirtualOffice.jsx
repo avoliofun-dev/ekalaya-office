@@ -118,29 +118,47 @@ export default function VirtualOffice() {
   const joystickVector = useRef({ x: 0, z: 0 }); // Touch Joystick vector for mobile
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  // Trigger emote
+  // Roblox-style camera rotation state (mouse drag / touch swipe)
+  const cameraAngle = useRef({ theta: 0, phi: 0.45 }); // Orbit angles
+  const isDraggingCamera = useRef(false);
+  const lastPointerPos = useRef({ x: 0, y: 0 });
+
+  // Jump physics state
+  const playerVelocityY = useRef(0);
+  const isGrounded = useRef(true);
+
+  // Trigger jump function
+  const triggerJump = () => {
+    if (isGrounded.current && playerAvatarRef.current) {
+      playerVelocityY.current = 6.2;
+      isGrounded.current = false;
+    }
+  };
+
+  // Trigger emote (Minimal 4 gerakan: Wave, Cheer/Clap, Dance/Joged, Coffee/Sit)
   const triggerEmote = (emoteType) => {
     if (!playerAvatarRef.current) return;
     const avatar = playerAvatarRef.current;
 
     if (emoteType === "wave") {
       avatar.userData.action = "waving";
-      avatar.userData.waveTimer = 60;
-      confetti({
-        particleCount: 25,
-        spread: 60,
-        origin: { y: 0.8 },
-      });
+      avatar.userData.waveTimer = 70;
+      confetti({ particleCount: 25, spread: 60, origin: { y: 0.8 } });
       addSystemMessage(`${playerName} melambaikan tangan! 👋`);
     } else if (emoteType === "cheer") {
       avatar.userData.action = "cheer";
-      avatar.userData.cheerTimer = 60;
-      confetti({
-        particleCount: 50,
-        spread: 80,
-        origin: { y: 0.7 },
-      });
+      avatar.userData.cheerTimer = 70;
+      confetti({ particleCount: 50, spread: 80, origin: { y: 0.7 } });
       addSystemMessage(`${playerName} memberikan tepuk tangan meriah! 🎉`);
+    } else if (emoteType === "dance") {
+      avatar.userData.action = "dance";
+      avatar.userData.danceTimer = 120; // 2 seconds dance
+      confetti({ particleCount: 40, spread: 100, origin: { y: 0.75 } });
+      addSystemMessage(`${playerName} asyik berjoget disco! 💃🕺`);
+    } else if (emoteType === "spin") {
+      avatar.userData.action = "spin";
+      avatar.userData.spinTimer = 60;
+      addSystemMessage(`${playerName} berputar 360 derajat! 🌀`);
     } else if (emoteType === "coffee") {
       setPlayerStatus("Away");
       addSystemMessage(`${playerName} sedang istirahat minum kopi di pantry ☕`);
@@ -373,6 +391,9 @@ export default function VirtualOffice() {
         return;
       }
       keysPressed.current[e.key.toLowerCase()] = true;
+      if (e.code === "Space") {
+        triggerJump();
+      }
     };
 
     const handleKeyUp = (e) => {
@@ -381,6 +402,36 @@ export default function VirtualOffice() {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+
+    // ROBLOX-STYLE TOUCH / MOUSE CAMERA ROTATION
+    const handlePointerDown = (e) => {
+      // Don't drag camera if touching joystick or UI buttons
+      if (e.target.closest("button") || e.target.closest("input") || e.target.closest(".touch-none")) {
+        return;
+      }
+      isDraggingCamera.current = true;
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const handlePointerMove = (e) => {
+      if (!isDraggingCamera.current) return;
+      const dx = e.clientX - lastPointerPos.current.x;
+      const dy = e.clientY - lastPointerPos.current.y;
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+
+      // Orbit angles: theta (horizontal), phi (vertical)
+      cameraAngle.current.theta -= dx * 0.007;
+      cameraAngle.current.phi = Math.max(0.15, Math.min(1.2, cameraAngle.current.phi + dy * 0.005));
+    };
+
+    const handlePointerUp = () => {
+      isDraggingCamera.current = false;
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
 
     // RESIZE & ORIENTATION CHANGE LISTENER (Mobile landscape & portrait support)
     const handleResize = () => {
@@ -416,26 +467,42 @@ export default function VirtualOffice() {
       if (playerAvatarRef.current) {
         const player = playerAvatarRef.current;
         const speed = 4.5 * delta;
-        let moveX = 0;
-        let moveZ = 0;
+        let inputX = 0;
+        let inputZ = 0;
 
-        if (keysPressed.current["w"] || keysPressed.current["arrowup"]) moveZ -= 1;
-        if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) moveZ += 1;
-        if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) moveX -= 1;
-        if (keysPressed.current["d"] || keysPressed.current["arrowright"]) moveX += 1;
+        if (keysPressed.current["w"] || keysPressed.current["arrowup"]) inputZ -= 1;
+        if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) inputZ += 1;
+        if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) inputX -= 1;
+        if (keysPressed.current["d"] || keysPressed.current["arrowright"]) inputX += 1;
 
         // Mobile touch joystick input
         if (joystickVector.current.x !== 0 || joystickVector.current.z !== 0) {
-          moveX += joystickVector.current.x;
-          moveZ += joystickVector.current.z;
+          inputX += joystickVector.current.x;
+          inputZ += joystickVector.current.z;
         }
 
-        const isMoving = moveX !== 0 || moveZ !== 0;
+        const isMoving = inputX !== 0 || inputZ !== 0;
+
+        // Jump physics (Gravity & Velocity)
+        if (!isGrounded.current) {
+          playerVelocityY.current -= 18 * delta; // Gravity
+          player.position.y += playerVelocityY.current * delta;
+          if (player.position.y <= 0) {
+            player.position.y = 0;
+            playerVelocityY.current = 0;
+            isGrounded.current = true;
+          }
+        }
 
         if (isMoving) {
-          const len = Math.hypot(moveX, moveZ);
-          moveX /= len;
-          moveZ /= len;
+          const len = Math.hypot(inputX, inputZ);
+          const normX = inputX / len;
+          const normZ = inputZ / len;
+
+          // Align movement relative to camera orientation!
+          const theta = cameraAngle.current.theta;
+          const moveX = normX * Math.cos(theta) + normZ * Math.sin(theta);
+          const moveZ = -normX * Math.sin(theta) + normZ * Math.cos(theta);
 
           const nextX = player.position.x + moveX * speed;
           const nextZ = player.position.z + moveZ * speed;
@@ -453,6 +520,7 @@ export default function VirtualOffice() {
           player.userData.leftArmPivot.rotation.x = -swing;
           player.userData.rightArmPivot.rotation.x = swing;
         } else {
+          // Emote animations
           if (player.userData.action === "waving") {
             player.userData.waveTimer--;
             player.userData.rightArmPivot.rotation.x = 0;
@@ -470,6 +538,24 @@ export default function VirtualOffice() {
               player.userData.leftArmPivot.rotation.z = 0;
               player.userData.rightArmPivot.rotation.z = 0;
             }
+          } else if (player.userData.action === "dance") {
+            player.userData.danceTimer--;
+            player.rotation.y += delta * 4; // Fun disco spin
+            player.userData.torso.position.y = 1.05 + Math.abs(Math.sin(time * 10)) * 0.25;
+            player.userData.leftArmPivot.rotation.z = Math.sin(time * 12) * 1.5 - 1.0;
+            player.userData.rightArmPivot.rotation.z = -Math.sin(time * 12) * 1.5 + 1.0;
+            if (player.userData.danceTimer <= 0) {
+              player.userData.action = "idle";
+              player.userData.torso.position.y = 1.05;
+              player.userData.leftArmPivot.rotation.z = 0;
+              player.userData.rightArmPivot.rotation.z = 0;
+            }
+          } else if (player.userData.action === "spin") {
+            player.userData.spinTimer--;
+            player.rotation.y += delta * 12; // 360 fast spin
+            if (player.userData.spinTimer <= 0) {
+              player.userData.action = "idle";
+            }
           } else {
             player.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(player.userData.leftLegPivot.rotation.x, 0, 0.2);
             player.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(player.userData.rightLegPivot.rotation.x, 0, 0.2);
@@ -480,18 +566,19 @@ export default function VirtualOffice() {
           }
         }
 
-        // Camera follow smoothly behind player with dynamic Zoom Level
-        const baseCamY = 6.8 * zoomLevel;
-        const baseCamZ = 8.8 * zoomLevel;
+        // Spherical Orbit Camera relative to player (Roblox style rotation)
+        const camDistance = 11.0 * zoomLevel;
+        const theta = cameraAngle.current.theta;
+        const phi = cameraAngle.current.phi;
 
-        const targetCamX = player.position.x;
-        const targetCamY = player.position.y + baseCamY;
-        const targetCamZ = player.position.z + baseCamZ;
+        const targetCamX = player.position.x + camDistance * Math.sin(theta) * Math.cos(phi);
+        const targetCamY = player.position.y + camDistance * Math.sin(phi) + 1.5;
+        const targetCamZ = player.position.z + camDistance * Math.cos(theta) * Math.cos(phi);
 
-        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, 0.08);
-        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.08);
-        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.08);
-        camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z);
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, 0.12);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.12);
+        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.12);
+        camera.lookAt(player.position.x, player.position.y + 1.2, player.position.z);
 
         // Send network state update (throttled 20Hz / 50ms)
         if (time - lastNetworkSync > 0.05 && peerNetworkRef.current) {
@@ -1009,28 +1096,50 @@ export default function VirtualOffice() {
 
         <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
 
-        {/* Emote: Wave */}
+        {/* Emote 1: Wave */}
         <button
           onClick={() => triggerEmote("wave")}
-          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-sm md:text-base"
+          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
           title="Lambaikan Tangan (Wave)"
         >
-          👋
+          <span>👋</span>
+          <span className="hidden lg:inline text-[10px]">Halo</span>
         </button>
 
-        {/* Emote: Cheer */}
+        {/* Emote 2: Cheer */}
         <button
           onClick={() => triggerEmote("cheer")}
-          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-sm md:text-base"
+          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
           title="Tepuk Tangan (Cheer)"
         >
-          🎉
+          <span>🎉</span>
+          <span className="hidden lg:inline text-[10px]">Tepuk</span>
         </button>
 
-        {/* Emote: Coffee Break */}
+        {/* Emote 3: Dance Disco */}
+        <button
+          onClick={() => triggerEmote("dance")}
+          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-purple-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
+          title="Joget Disco (Dance)"
+        >
+          <span>💃</span>
+          <span className="hidden lg:inline text-[10px]">Joget</span>
+        </button>
+
+        {/* Emote 4: Spin 360 */}
+        <button
+          onClick={() => triggerEmote("spin")}
+          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-all shadow-md active:scale-95 text-xs md:text-base flex items-center gap-1"
+          title="Putar 360 (Spin)"
+        >
+          <span>🌀</span>
+          <span className="hidden lg:inline text-[10px]">Spin</span>
+        </button>
+
+        {/* Emote 5: Coffee Break */}
         <button
           onClick={() => triggerEmote("coffee")}
-          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95"
+          className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95"
           title="Istirahat Kopi di Pantry"
         >
           <Coffee className="w-4 h-4 md:w-5 md:h-5" />
@@ -1120,57 +1229,60 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* MOBILE TOUCH D-PAD / JOYSTICK CONTROLS (Portrait & Landscape Friendly) */}
-      <div className="md:hidden absolute bottom-16 sm:bottom-20 md:bottom-24 left-2 sm:left-4 z-20 flex flex-col items-center select-none touch-none">
-        <div className="bg-slate-900/80 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-slate-700/60 shadow-2xl scale-90 sm:scale-100 origin-bottom-left">
-          {/* UP */}
-          <div className="flex justify-center">
-            <button
-              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.z = -1; }}
-              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.z = 0; }}
-              onMouseDown={() => { joystickVector.current.z = -1; }}
-              onMouseUp={() => { joystickVector.current.z = 0; }}
-              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
-            >
-              ▲
-            </button>
+      {/* MOBILE MLBB-STYLE ANALOG JOYSTICK & JUMP BUTTON CONTROLS */}
+      {/* 1. ANALOG JOYSTICK (LEFT SIDE) */}
+      <div className="md:hidden absolute bottom-12 left-5 z-20 select-none touch-none">
+        <div
+          className="relative w-32 h-32 rounded-full bg-slate-900/60 border-2 border-cyan-500/40 backdrop-blur-md flex items-center justify-center shadow-2xl active:border-cyan-400"
+          onTouchStart={(e) => {
+            const touch = e.touches[0];
+            const rect = e.currentTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = (touch.clientX - centerX) / (rect.width / 2);
+            const dy = (touch.clientY - centerY) / (rect.height / 2);
+            joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
+          }}
+          onTouchMove={(e) => {
+            const touch = e.touches[0];
+            const rect = e.currentTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = (touch.clientX - centerX) / (rect.width / 2);
+            const dy = (touch.clientY - centerY) / (rect.height / 2);
+            joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
+          }}
+          onTouchEnd={() => {
+            joystickVector.current = { x: 0, z: 0 };
+          }}
+        >
+          {/* Inner Joystick Thumb */}
+          <div
+            className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 border border-white/40 shadow-xl flex items-center justify-center text-white font-black text-xs transition-transform pointer-events-none"
+            style={{
+              transform: `translate(${joystickVector.current.x * 24}px, ${joystickVector.current.z * 24}px)`,
+            }}
+          >
+            🕹️
           </div>
-          {/* LEFT - CENTER - RIGHT */}
-          <div className="flex items-center gap-1 my-0.5 sm:my-1">
-            <button
-              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.x = -1; }}
-              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.x = 0; }}
-              onMouseDown={() => { joystickVector.current.x = -1; }}
-              onMouseUp={() => { joystickVector.current.x = 0; }}
-              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
-            >
-              ◀
-            </button>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-950/50 flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-slate-500">
-              MOVE
-            </div>
-            <button
-              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.x = 1; }}
-              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.x = 0; }}
-              onMouseDown={() => { joystickVector.current.x = 1; }}
-              onMouseUp={() => { joystickVector.current.x = 0; }}
-              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
-            >
-              ▶
-            </button>
-          </div>
-          {/* DOWN */}
-          <div className="flex justify-center">
-            <button
-              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.z = 1; }}
-              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.z = 0; }}
-              onMouseDown={() => { joystickVector.current.z = 1; }}
-              onMouseUp={() => { joystickVector.current.z = 0; }}
-              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
-            >
-              ▼
-            </button>
-          </div>
+        </div>
+      </div>
+
+      {/* 2. JUMP BUTTON & ACTION CONTROLS (RIGHT SIDE) */}
+      <div className="md:hidden absolute bottom-12 right-5 z-20 flex flex-col items-center gap-2 select-none touch-none">
+        {/* JUMP ACTION BUTTON (Besar ala MLBB) */}
+        <button
+          onTouchStart={(e) => { e.preventDefault(); triggerJump(); }}
+          onClick={triggerJump}
+          className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 border-2 border-white/50 active:scale-90 text-white font-extrabold text-sm shadow-2xl flex flex-col items-center justify-center shadow-cyan-500/40"
+        >
+          <span>⏫</span>
+          <span className="text-[10px] tracking-tight">LONCAT</span>
+        </button>
+
+        {/* ROTATE CAM HINT */}
+        <div className="bg-slate-900/70 border border-slate-700/60 px-2 py-1 rounded-lg text-[9px] text-cyan-300 pointer-events-none">
+          👆 Geser layar untuk putar kamera
         </div>
       </div>
 

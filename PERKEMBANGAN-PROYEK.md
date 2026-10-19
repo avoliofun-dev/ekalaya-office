@@ -64,13 +64,22 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
 
 ---
 
-## 📅 Tahap 7: Tombol Fullscreen & Perbaikan Responsif Layar Miring (Landscape)
-* **Tombol Fullscreen**:
-  - Mengaktifkan Fullscreen API (`document.documentElement.requestFullscreen()`) untuk menyembunyikan bilah URL / address bar browser sehingga terasa seperti aplikasi native.
-* **Perbaikan Error Layar Miring (Landscape)**:
-  - Pengaturan `viewportFit: "cover"` dan `maximumScale: 1` pada metadata Next.js.
-  - Penambahan pendengar `orientationchange` dan `visualViewport.resize` agar canvas WebGL Three.js dan kamera langsung mengkalkulasi ulang rasio aspek layar saat HP diputar horizontal.
-  - Skala Virtual D-Pad otomatis menyesuaikan agar tidak menutupi kontrol bawah saat layar miring.
+## 📅 Tahap 8: Analog Joystick Ala Mobile Legends, Rotasi Kamera Ala Roblox, Tombol Loncat & 5 Gerakan Emote
+* **Analog Joystick Sentuh Ala Mobile Legends (MLBB)**:
+  - Menggantikan tombol D-pad kotak dengan joystick analog melingkar 360° transparan yang nyaman digeser dengan ibu jari kiri.
+  - Vektor gerakan analog responsif dan lancar ke segala arah mata angin.
+* **Rotasi Bebas Kamera Lingkungan (Orbit Cam Ala Roblox)**:
+  - Layar sekarang bisa disentuh/digeser (drag/swipe) menggunakan jari (di HP) atau mouse (di laptop) untuk memutar kamera 360° mengitari avatar secara bebas (*spherical orbit*).
+  - Arah jalan avatar otomatis sinkron dengan sudut pandang kamera yang sedang diarahkan.
+* **Tombol Aksi Loncat (Jump)**:
+  - Tombol aksi lingkaran besar di pojok kanan bawah khusus untuk **LONCAT** dengan fisika gravitasi melompat di udara.
+  - Pengguna keyboard PC juga bisa menekan tombol <kbd>Space</kbd> untuk melompat.
+* **5 Pilihan Gerakan & Emote Interaktif**:
+  1. 👋 **Halo / Wave**: Melambaikan tangan ramah.
+  2. 🎉 **Tepuk Tangan / Cheer**: Bersorak tepuk tangan meriah dengan konfeti.
+  3. 💃 **Joget Disco / Dance**: Berjoget disko asyik dengan tangan berayun dan hentakan tubuh.
+  4. 🌀 **Putar 360 / Spin**: Berputar cepat 360 derajat.
+  5. ☕ **Istirahat Kopi / Relax**: Status santai duduk rehat di pantry.
 
 ---
 
