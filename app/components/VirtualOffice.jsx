@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { buildOfficeScene, createBlockyAvatar } from "@/lib/officeBuilder";
-import { INITIAL_BOTS, OFFICE_ZONES, AVATAR_COLORS } from "@/lib/mockData";
+import { INITIAL_BOTS, OFFICE_ZONES, AVATAR_COLORS, COMPANY_PROFILE } from "@/lib/mockData";
+import { WORK_CYCLE_SCHEDULE } from "@/lib/workCycle";
 import { PeerNetwork } from "@/lib/peerNetwork";
 import {
   MessageSquare,
@@ -12,6 +13,8 @@ import {
   Video,
   VideoOff,
   Users,
+  Briefcase,
+  Calendar,
   Settings,
   Send,
   Coffee,
@@ -33,20 +36,35 @@ import {
   Minimize,
   Eye,
   EyeOff,
+  LogIn,
+  LogOut,
+  Clock,
+  Play,
+  Pause,
+  SkipForward,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
 export default function VirtualOffice() {
   const containerRef = useRef(null);
 
-  // User state
+  // User state & Office Presence State
   const [userId, setUserId] = useState("user_init");
   const [playerName, setPlayerName] = useState("Raja (Owner)");
   const [playerStatus, setPlayerStatus] = useState("Available"); // Available | Busy | Away
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].hex);
   const [currentZone, setCurrentZone] = useState("Lobi Kantor");
+  const [isInOffice, setIsInOffice] = useState(true); // Status Masuk / Keluar Kantor
   const [peersNearby, setPeersNearby] = useState([]);
   const [connectedPeersCount, setConnectedPeersCount] = useState(0);
+
+  // Work Cycle Schedule State (Siklus Kegiatan Kerja Pegawai)
+  const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
+  const [cycleTimer, setCycleTimer] = useState(45); // detik sisa dalam fase
+  const [isCycleAutoPlaying, setIsCycleAutoPlaying] = useState(true);
+  const [workCycleData, setWorkCycleData] = useState(WORK_CYCLE_SCHEDULE);
+  const currentPhase = workCycleData[currentPhaseIndex];
+
   // Day/Night and Camera Zoom state
   const [isDayMode, setIsDayMode] = useState(true); // Default SIANG
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
@@ -203,6 +221,90 @@ export default function VirtualOffice() {
         isSystem: true,
       },
     ]);
+  };
+
+  // Siklus Kerja: Pergantian Fase (Auto-cycle timer & manual next phase)
+  const advanceToPhase = useCallback((targetIndex) => {
+    const nextIdx = (targetIndex + workCycleData.length) % workCycleData.length;
+    setCurrentPhaseIndex(nextIdx);
+    setCycleTimer(workCycleData[nextIdx].durationSeconds || 45);
+
+    const nextPhaseConfig = workCycleData[nextIdx];
+    addSystemMessage(`⏰ [Siklus Kantor] Dimulai: ${nextPhaseConfig.title}`);
+
+    // Update target posisi & tugas 4 bot di Three.js
+    if (botsRef.current) {
+      Object.entries(nextPhaseConfig.bots).forEach(([botId, botSchedule]) => {
+        const botMesh = botsRef.current.get(botId);
+        if (botMesh) {
+          botMesh.userData.targetX = botSchedule.position.x;
+          botMesh.userData.targetZ = botSchedule.position.z;
+          botMesh.userData.targetRot = botSchedule.rotation;
+          botMesh.userData.action = botSchedule.action;
+          botMesh.userData.status = botSchedule.status;
+          botMesh.userData.task = botSchedule.task;
+        }
+      });
+    }
+
+    // Bot automatic announce in chat after phase starts
+    setTimeout(() => {
+      const botsEntries = Object.entries(nextPhaseConfig.bots);
+      const chosen = botsEntries[Math.floor(Math.random() * botsEntries.length)];
+      if (chosen && chosen[1].chat) {
+        const botObj = INITIAL_BOTS.find((b) => b.id === chosen[0]);
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            sender: botObj ? botObj.name : "Pegawai",
+            text: chosen[1].chat,
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            isOwner: false,
+          },
+        ]);
+      }
+    }, 1500);
+  }, [workCycleData]);
+
+  // Efek interval untuk countdown siklus kegiatan
+  useEffect(() => {
+    if (!isCycleAutoPlaying) return;
+    const interval = setInterval(() => {
+      setCycleTimer((prev) => {
+        if (prev <= 1) {
+          advanceToPhase(currentPhaseIndex + 1);
+          return 45;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isCycleAutoPlaying, currentPhaseIndex, advanceToPhase]);
+
+  // Aksi Masuk / Keluar Kantor
+  const toggleOfficePresence = () => {
+    if (isInOffice) {
+      // Keluar dari kantor
+      setIsInOffice(false);
+      setPlayerStatus("Away");
+      if (playerAvatarRef.current) {
+        // Pindahkan avatar keluar pintu lobi atau sembunyikan
+        playerAvatarRef.current.position.set(0, 0, 11.5);
+        playerAvatarRef.current.visible = false;
+      }
+      addSystemMessage(`${playerName} telah keluar dari kantor (Check-out) 🚪👋`);
+    } else {
+      // Masuk ke kantor
+      setIsInOffice(true);
+      setPlayerStatus("Available");
+      if (playerAvatarRef.current) {
+        playerAvatarRef.current.position.set(0, 0, 7.5);
+        playerAvatarRef.current.visible = true;
+      }
+      confetti({ particleCount: 35, spread: 70, origin: { y: 0.6 } });
+      addSystemMessage(`${playerName} telah masuk ke dalam kantor (Check-in)! Selamat bekerja 🏢💼`);
+    }
   };
 
   const handleSendMessage = (e) => {
@@ -698,16 +800,82 @@ export default function VirtualOffice() {
         }
       });
 
-      // 3. Animate Bots
+      // 3. Animate Bots with Schedule Walk & Task Actions
       botsRef.current.forEach((botMesh) => {
-        if (botMesh.userData.action === "typing") {
+        // Jika bot memiliki target posisi dari siklus kegiatan yang sedang berlangsung
+        if (botMesh.userData.targetX !== undefined && botMesh.userData.targetZ !== undefined) {
+          const dx = botMesh.userData.targetX - botMesh.position.x;
+          const dz = botMesh.userData.targetZ - botMesh.position.z;
+          const distToTarget = Math.hypot(dx, dz);
+
+          if (distToTarget > 0.15) {
+            // Bot sedang berjalan menuju ruangan / meja target
+            const walkSpeed = 2.4 * delta;
+            botMesh.position.x += (dx / distToTarget) * walkSpeed;
+            botMesh.position.z += (dz / distToTarget) * walkSpeed;
+
+            // Hadap ke arah berjalan
+            const moveAngle = Math.atan2(dx, dz);
+            botMesh.rotation.y = THREE.MathUtils.lerp(botMesh.rotation.y, moveAngle, 0.2);
+
+            // Ayunan kaki & tangan saat berjalan
+            botMesh.userData.stepCycle = (botMesh.userData.stepCycle || 0) + delta * 10;
+            const swing = Math.sin(botMesh.userData.stepCycle) * 0.55;
+            botMesh.userData.leftLegPivot.rotation.x = swing;
+            botMesh.userData.rightLegPivot.rotation.x = -swing;
+            botMesh.userData.leftArmPivot.rotation.x = -swing;
+            botMesh.userData.rightArmPivot.rotation.x = swing;
+            botMesh.userData.torso.position.y = 1.05 + Math.abs(Math.sin(botMesh.userData.stepCycle * 2)) * 0.08;
+            botMesh.position.y = 0;
+            return;
+          } else {
+            // Sudah sampai tujuan, samakan rotasi dan aksi target
+            if (botMesh.userData.targetRot !== undefined) {
+              botMesh.rotation.y = THREE.MathUtils.lerp(botMesh.rotation.y, botMesh.userData.targetRot, 0.1);
+            }
+          }
+        }
+
+        // Jalankan animasi berdasarkan action (typing, sitting, waving, cheer, dance, idle)
+        const act = botMesh.userData.action || "idle";
+
+        if (act === "typing") {
+          botMesh.position.y = 0;
+          botMesh.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.leftLegPivot.rotation.x, 0, 0.2);
+          botMesh.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.rightLegPivot.rotation.x, 0, 0.2);
           botMesh.userData.leftArmPivot.rotation.x = -1.2 + Math.sin(time * 8) * 0.1;
           botMesh.userData.rightArmPivot.rotation.x = -1.2 + Math.cos(time * 8) * 0.1;
-        } else if (botMesh.userData.action === "sitting") {
+          botMesh.userData.leftArmPivot.rotation.z = 0;
+          botMesh.userData.rightArmPivot.rotation.z = 0;
+        } else if (act === "sitting") {
           botMesh.position.y = -0.3;
           botMesh.userData.leftLegPivot.rotation.x = -Math.PI / 2;
           botMesh.userData.rightLegPivot.rotation.x = -Math.PI / 2;
+          botMesh.userData.leftArmPivot.rotation.x = -0.5;
+          botMesh.userData.rightArmPivot.rotation.x = -0.5;
+        } else if (act === "waving") {
+          botMesh.position.y = 0;
+          botMesh.userData.leftLegPivot.rotation.x = 0;
+          botMesh.userData.rightLegPivot.rotation.x = 0;
+          botMesh.userData.rightArmPivot.rotation.x = 0;
+          botMesh.userData.rightArmPivot.rotation.z = Math.sin(time * 12) * 0.5 + 2.4;
+          botMesh.userData.leftArmPivot.rotation.z = 0;
+        } else if (act === "cheer") {
+          botMesh.position.y = 0;
+          botMesh.userData.leftArmPivot.rotation.z = -2.2 + Math.sin(time * 18) * 0.3;
+          botMesh.userData.rightArmPivot.rotation.z = 2.2 + Math.sin(time * 18) * 0.3;
+        } else if (act === "dance") {
+          botMesh.position.y = 0;
+          botMesh.rotation.y += delta * 2.5;
+          botMesh.userData.leftArmPivot.rotation.z = Math.sin(time * 10) * 1.2 - 0.8;
+          botMesh.userData.rightArmPivot.rotation.z = -Math.sin(time * 10) * 1.2 + 0.8;
         } else {
+          // Idle santai bernapas
+          botMesh.position.y = 0;
+          botMesh.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.leftLegPivot.rotation.x, 0, 0.2);
+          botMesh.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.rightLegPivot.rotation.x, 0, 0.2);
+          botMesh.userData.leftArmPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.leftArmPivot.rotation.x, 0, 0.2);
+          botMesh.userData.rightArmPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.rightArmPivot.rotation.x, 0, 0.2);
           botMesh.userData.torso.position.y = 1.05 + Math.sin(time * 2) * 0.02;
         }
       });
@@ -784,6 +952,20 @@ export default function VirtualOffice() {
 
           {!isCleanUIMode && (
             <>
+              {/* TOMBOL MASUK / KELUAR DARI KANTOR */}
+              <button
+                onClick={toggleOfficePresence}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl backdrop-blur-md text-xs font-bold transition-all shadow-lg active:scale-95 border ${
+                  isInOffice
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30 shadow-rose-500/20"
+                    : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35 shadow-emerald-500/20 animate-pulse"
+                }`}
+                title={isInOffice ? "Keluar dari Kantor (Check-out)" : "Masuk ke Dalam Kantor (Check-in)"}
+              >
+                {isInOffice ? <LogOut className="w-4 h-4 text-rose-400" /> : <LogIn className="w-4 h-4 text-emerald-400" />}
+                <span>{isInOffice ? "Keluar Kantor" : "Masuk Kantor"}</span>
+              </button>
+
               {/* FULLSCREEN TOGGLE (Menghilangkan URL bar) */}
               <button
                 onClick={toggleFullscreen}
@@ -866,6 +1048,70 @@ export default function VirtualOffice() {
         </div>
       </header>
 
+      {/* TOP FLOATING BAR: SIKLUS KEGIATAN KANTOR (WORK CYCLE HUD) */}
+      {!isCleanUIMode && (
+        <div className="absolute top-16 md:top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[92vw] animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-xl px-3.5 py-2 rounded-2xl border border-cyan-500/40 shadow-2xl text-xs">
+            <span className="text-base select-none">{currentPhase.icon}</span>
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white tracking-wide truncate max-w-[180px] sm:max-w-none">
+                  {currentPhase.title}
+                </span>
+                <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded-md font-mono flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '6s' }} />
+                  {cycleTimer}s
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 hidden sm:block truncate max-w-sm">
+                {currentPhase.description}
+              </p>
+            </div>
+
+            {/* Kontrol Siklus: Play/Pause & Next Phase */}
+            <div className="flex items-center gap-1 pl-1 border-l border-slate-700/80">
+              <button
+                onClick={() => setIsCycleAutoPlaying(!isCycleAutoPlaying)}
+                className={`p-1.5 rounded-lg border transition-all ${
+                  isCycleAutoPlaying
+                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30"
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                }`}
+                title={isCycleAutoPlaying ? "Jeda Siklus Otomatis" : "Jalankan Siklus Otomatis"}
+              >
+                {isCycleAutoPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+              </button>
+              <button
+                onClick={() => advanceToPhase(currentPhaseIndex + 1)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 transition-all active:scale-95"
+                title="Lanjut ke Siklus Kegiatan Berikutnya"
+              >
+                <SkipForward className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OVERLAY STATUS JIKA KELUAR DARI KANTOR */}
+      {!isInOffice && (
+        <div className="absolute top-28 md:top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto bg-slate-900/95 border border-rose-500/50 text-slate-200 px-4 py-3 rounded-2xl backdrop-blur-xl flex items-center gap-3 text-xs shadow-2xl animate-in zoom-in-95">
+          <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 font-bold text-sm">
+            🚪
+          </div>
+          <div>
+            <p className="font-bold text-rose-300">Anda Sedang di Luar Kantor (Away / Off)</p>
+            <p className="text-[10px] text-slate-400">Avatar Anda keluar dari ruangan. 4 Pegawai tetap aktif bekerja sesuai sekejul.</p>
+          </div>
+          <button
+            onClick={toggleOfficePresence}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+          >
+            Masuk Kembali
+          </button>
+        </div>
+      )}
+
       {/* SPATIAL PROXIMITY RADAR / NEARBY PEERS */}
       {peersNearby.length > 0 && (
         <div className="absolute top-20 left-4 z-10 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300">
@@ -918,7 +1164,22 @@ export default function VirtualOffice() {
             </button>
           </div>
 
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+          {/* Kartu Profil Perusahaan */}
+          <div className="mb-3 p-3 rounded-xl bg-gradient-to-br from-cyan-950/60 to-slate-900 border border-cyan-500/30 text-xs">
+            <div className="flex items-center gap-2 text-cyan-400 font-bold mb-1">
+              <Briefcase className="w-3.5 h-3.5" />
+              <span>{COMPANY_PROFILE.name}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-300 mb-0.5">
+              <Calendar className="w-3 h-3 text-cyan-400" />
+              <span>Berdiri Sejak: <strong className="text-white">{COMPANY_PROFILE.foundedDate}</strong></span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-snug">
+              Founder: <strong className="text-amber-300">{COMPANY_PROFILE.owner}</strong> • Status: <span className="text-emerald-400 font-semibold">{COMPANY_PROFILE.status}</span>
+            </p>
+          </div>
+
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
             {/* Player self */}
             <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-800/80 border border-cyan-500/40">
               <div
@@ -934,7 +1195,7 @@ export default function VirtualOffice() {
                     Owner
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 truncate">Status: {playerStatus}</p>
+                <p className="text-[10px] text-slate-400 truncate">Mulai Aktif: 19 Oktober 2026, 07:00 WIB</p>
               </div>
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20" />
             </div>
@@ -958,35 +1219,46 @@ export default function VirtualOffice() {
               </div>
             ))}
 
-            {/* Bots / Colleagues */}
-            {INITIAL_BOTS.map((bot) => (
-              <div key={bot.id} className="flex items-center gap-3 p-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/40 transition-colors">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white"
-                  style={{ backgroundColor: bot.color }}
-                >
-                  {bot.name[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-semibold text-slate-200 truncate">{bot.name}</p>
-                    <span className="text-[9px] bg-slate-700 text-slate-300 px-1 rounded font-medium">
-                      {bot.role}
-                    </span>
+            {/* Bots / 4 Pegawai dengan status dinamis & tanggal mulai aktif */}
+            {INITIAL_BOTS.map((bot) => {
+              const liveBotSchedule = currentPhase.bots[bot.id];
+              const liveStatus = liveBotSchedule?.status || bot.status;
+              const liveTask = liveBotSchedule?.task || bot.task;
+
+              return (
+                <div key={bot.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/40 transition-colors">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-md"
+                    style={{ backgroundColor: bot.color }}
+                  >
+                    {bot.name[0]}
                   </div>
-                  <p className="text-[10px] text-slate-400 truncate">{bot.task}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-slate-200 truncate">{bot.name}</p>
+                      <span className="text-[9px] bg-slate-700 text-slate-300 px-1 rounded font-medium">
+                        {bot.role}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-cyan-300 truncate font-mono">{liveTask}</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5 flex items-center gap-1">
+                      <Calendar className="w-2.5 h-2.5 text-cyan-400" />
+                      Aktif: <span className="text-slate-300">{bot.joinedDate}</span>
+                    </p>
+                  </div>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      liveStatus === "Available"
+                        ? "bg-emerald-400"
+                        : liveStatus === "Busy"
+                        ? "bg-rose-400"
+                        : "bg-amber-400"
+                    }`}
+                    title={`Status: ${liveStatus}`}
+                  />
                 </div>
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    bot.status === "Available"
-                      ? "bg-emerald-400"
-                      : bot.status === "Busy"
-                      ? "bg-rose-400"
-                      : "bg-amber-400"
-                  }`}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

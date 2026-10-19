@@ -4,6 +4,26 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
 
 ---
 
+## 🏛️ Profil Pendirian Perusahaan & Arsip Karyawan
+
+### 📌 Data Pendirian Perusahaan
+* **Nama Perusahaan**: PT Ekalaya Inovasi Digital (Ekalaya Tech HQ)
+* **Tanggal Berdiri**: **19 Oktober 2026**
+* **Pendiri (Founder & CEO)**: **Raja (Owner)**
+* **Visi & Misi**: Menciptakan platform virtual office 3D berbasis web browser yang interaktif, ringan, dan membawa kehangatan kerja bersama di era remote work.
+* **Status Kantor**: Operasional Penuh (*Live & Active*)
+
+### 👥 Jadwal & Tanggal Karyawan Mulai Aktif Bekerja
+| No | ID Pegawai | Nama Karyawan | Jabatan / Divisi | Mulai Aktif Bekerja | Tugas Utama |
+|---|---|---|---|---|---|
+| 1 | **EKA-000** | **Raja (Owner)** | Founder & CEO | 19 Oktober 2026, 07:00 WIB | Kepemimpinan & Pengambilan Keputusan Strategis |
+| 2 | **EKA-001** | **Rani** | Lead Product (Admin) | 19 Oktober 2026, 08:00 WIB | Meninjau PRD, Roadmap Q4 & Sprint Koordinasi |
+| 3 | **EKA-002** | **Budi** | Backend Dev (Member) | 19 Oktober 2026, 08:30 WIB | WebSocket Handler, Colyseus Engine & Arsitektur Server |
+| 4 | **EKA-003** | **Siti** | UI/UX Designer (Member) | 19 Oktober 2026, 09:00 WIB | Figma Design System v2.0 & Desain Aset 3D |
+| 5 | **EKA-004** | **Dimas** | DevOps & Cloud (Member) | 19 Oktober 2026, 09:15 WIB | Kubernetes Cluster, CI/CD Pipeline & Keamanan Jaringan |
+
+---
+
 ## 📅 Tahap 1: Inisialisasi Proyek & Arsitektur Frontend
 * **Teknologi**: Next.js 16 (App Router) + Three.js + Lucide React + TailwindCSS.
 * **Tujuan**: Membuat web yang siap di-deploy langsung ke Vercel tanpa dependensi database awal.
@@ -107,6 +127,23 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
     - **Di Layar HP**: Cukup sentuh dan geser jari Anda di luar area joystick/tombol, kamera langsung berputar halus 360° horizontal dan naik/turun vertikal.
     - **Di Desktop/Laptop**: Klik dan tahan mouse di mana saja pada kanvas 3D lalu geser mouse untuk mengitari avatar.
 
+## 📅 Tahap 12: Siklus Kegiatan Harian Otomatis (Work Cycle), Pergerakan Nyata 4 Pegawai & Tombol Masuk/Keluar Kantor
+* **Sistem Siklus Kegiatan Kerja Otomatis (`lib/workCycle.js`)**:
+  - Menyediakan 4 fase rutinitas kantor dinamis yang berputar otomatis (atau dikontrol manual):
+    1. 💻 **Sesi Pagi (Deep Work & Sprint Coding)**: Semua pegawai berada di meja masing-masing mengetik kode, review PRD, dan memonitor cluster server.
+    2. 📊 **Sesi Rapat (Daily Standup di Executive Room)**: Seluruh 4 pegawai serentak berjalan menuju Executive Meeting Room, duduk melingkari meja bundar dan berdiskusi.
+    3. ☕ **Sesi Istirahat (Coffee & Refreshment Break)**: Pegawai berjalan ke Pantry & Sofa Lounge, menyeduh kopi di barista bar, duduk santai dan berjoget disko.
+    4. 🤝 **Sesi Kolaborasi (Pair Review & Cross-Check)**: Tim bergerak saling mengunjungi meja rekan kerja, melambaikan tangan dan bersorak apresiasi (cheer).
+* **Animasi Berjalan Realistis untuk 4 Pegawai (Bot Walking Interpolation)**:
+  - Bot tidak berpindah secara instan (teleport), melainkan memutar arah badan dan **berjalan kaki secara mulus dengan ayunan tangan dan langkah kaki 3D** melintasi koridor kantor menuju ke ruangan berikutnya.
+  - Setiap fase baru otomatis memunculkan pengumuman sistem dan obrolan percakapan bot di chat kantor.
+* **Tombol Masuk / Keluar Kantor (Check-in & Check-out)**:
+  - Tersedia tombol interaktif di header atas: **"Keluar Kantor" (merah)** dan **"Masuk Kantor" (hijau)**.
+  - Saat Owner menekan *Keluar Kantor*, status berubah menjadi *Away*, avatar menghilang/keluar ruangan, dan muncul banner status elegan.
+  - 4 pegawai tetap terlihat hidup dan aktif bekerja menjalankan sekejul kantor.
+  - Saat menekan *Masuk Kantor*, avatar kembali muncul di lobi dengan efek selebrasi konfeti meriah! 🎉
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
+
