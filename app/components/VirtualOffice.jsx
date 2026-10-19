@@ -1051,49 +1051,147 @@ export default function VirtualOffice() {
       <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
 
       {/* TOP HEADER: BRAND, WORK CYCLE HUD & ACTIONS */}
-      <header className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20">
-        {!isCleanUIMode ? (
-          <div className="flex items-center gap-2.5 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-base shadow-lg shadow-cyan-500/25 text-white">
-              E
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xs font-bold tracking-tight text-white">EKALAYA 3D OFFICE</h1>
-                <span className="flex items-center gap-1 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <Wifi className="w-2.5 h-2.5 animate-pulse" />
-                  LIVE
-                </span>
+      <header className="absolute top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-2 pointer-events-none z-20">
+        {/* ROW 1: BRAND LOGO (KIRI) & ACTIONS (KANAN) PADA MOBILE */}
+        <div className="w-full md:w-auto flex items-center justify-between pointer-events-none">
+          {!isCleanUIMode ? (
+            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
+              <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg md:rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xs md:text-base shadow-lg shadow-cyan-500/25 text-white">
+                E
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                <Compass className="w-3 h-3 text-cyan-400" />
-                <span>Zona: <strong className="text-cyan-300">{currentZone}</strong></span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-[10px] md:text-xs font-bold tracking-tight text-white truncate max-w-[110px] sm:max-w-none">EKALAYA 3D</h1>
+                  <span className="flex items-center gap-0.5 text-[8px] md:text-[9px] uppercase font-bold tracking-wider px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <Wifi className="w-2 h-2 animate-pulse" />
+                    LIVE
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[9px] md:text-[11px] text-slate-400">
+                  <Compass className="w-2.5 h-2.5 text-cyan-400" />
+                  <span className="truncate max-w-[100px] sm:max-w-none">{currentZone}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ) : <div />}
+          ) : <div />}
 
-        {/* 24-HOUR SIMULATION HUD (TENGAH HEADER - KONTROL REALTIME & DIPERCEPAT) */}
+          {/* TOP RIGHT: CONTROLS & WORKSPACE INFO (DI BARIS KANAN ATAS) */}
+          <div className="flex items-center gap-1 md:gap-1.5 pointer-events-auto">
+            {/* TOGGLE CLEAN UI */}
+            <button
+              onClick={() => setIsCleanUIMode(!isCleanUIMode)}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95 ${
+                isCleanUIMode
+                  ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
+                  : "bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60"
+              }`}
+              title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
+            >
+              {isCleanUIMode ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-cyan-400" />}
+              <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
+            </button>
+
+            {!isCleanUIMode && (
+              <>
+                {/* TOMBOL MASUK / KELUAR DARI KANTOR */}
+                <button
+                  onClick={toggleOfficePresence}
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-bold transition-all shadow-md active:scale-95 border ${
+                    isInOffice
+                      ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
+                      : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
+                  }`}
+                  title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
+                >
+                  {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
+                  <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk Avatar"}</span>
+                </button>
+
+                {/* FULLSCREEN TOGGLE */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
+                  title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
+                >
+                  {isFullscreen ? <Minimize className="w-3 h-3 text-emerald-400" /> : <Maximize className="w-3 h-3 text-cyan-400" />}
+                </button>
+
+                {/* DAY / NIGHT MODE TOGGLE */}
+                <button
+                  onClick={() => setIsDayMode(!isDayMode)}
+                  className={`p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95 ${
+                    isDayMode
+                      ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+                      : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                  title={isDayMode ? "Mode Malam" : "Mode Siang"}
+                >
+                  {isDayMode ? <Sun className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3 h-3 text-cyan-300" />}
+                </button>
+
+                {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
+                <button
+                  onClick={() => {
+                    if (zoomLevel === 1) setZoomLevel(1.5);
+                    else if (zoomLevel === 1.5) setZoomLevel(0.7);
+                    else setZoomLevel(1);
+                  }}
+                  className="hidden sm:flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
+                  title="Jarak Pandang (Luas / Dekat / Normal)"
+                >
+                  <Maximize2 className="w-3 h-3 text-cyan-400" />
+                  <span className="hidden md:inline">
+                    {zoomLevel === 1.5 ? "Luas" : zoomLevel === 0.7 ? "Dekat" : "Normal"}
+                  </span>
+                </button>
+
+                {/* DAFTAR ANGGOTA */}
+                <button
+                  onClick={() => {
+                    if (simulationEngineRef.current) {
+                      setNpcListState(Array.from(simulationEngineRef.current.npcStates.values()));
+                    }
+                    setIsMemberListOpen(!isMemberListOpen);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
+                >
+                  <Users className="w-3 h-3 text-cyan-400" />
+                  <span>({npcListState.length + 1 + connectedPeersCount})</span>
+                </button>
+
+                <button
+                  onClick={() => setIsHelpOpen(true)}
+                  className="hidden sm:block p-1.5 md:p-2 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-md active:scale-95"
+                  title="Panduan Kontrol"
+                >
+                  <HelpCircle className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 24-HOUR SIMULATION HUD (TENGAH HEADER - BERSIH & RAPI PADA HP) */}
         {!isCleanUIMode && (
-          <div className="order-3 md:order-2 mx-auto pointer-events-auto max-w-[94vw]">
-            <div className="flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-cyan-500/40 shadow-xl text-xs">
-              <span className="text-base select-none">
+          <div className="w-full md:w-auto flex justify-center pointer-events-auto">
+            <div className="flex items-center gap-1.5 md:gap-2 bg-slate-900/95 backdrop-blur-xl px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl md:rounded-2xl border border-cyan-500/40 shadow-xl text-xs">
+              <span className="text-xs md:text-sm select-none">
                 {isTimeAccelerated ? "⚡" : "🕒"}
               </span>
-              <div className="text-left flex items-center gap-2">
-                <span suppressHydrationWarning className="font-bold text-white tracking-wide text-xs">
-                  {simulatedTimeStr} WIB
+              <div className="text-left flex items-center gap-1.5">
+                <span suppressHydrationWarning className="font-bold text-white tracking-wide text-[11px] md:text-xs">
+                  {simulatedTimeStr}
                 </span>
                 <span
                   suppressHydrationWarning
-                  className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1 border ${
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1 border ${
                     isTimeAccelerated
                       ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
                       : "bg-cyan-950/90 text-cyan-300 border-cyan-500/30"
                   }`}
                 >
-                  <Clock className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: isTimeAccelerated ? "2s" : "10s" }} />
-                  {isTimeAccelerated ? "1 Hari = 10m" : "Realtime 24J"}
+                  <Clock className="w-2 h-2 animate-spin" style={{ animationDuration: isTimeAccelerated ? "2s" : "10s" }} />
+                  {isTimeAccelerated ? "10m/Hari" : "Realtime"}
                 </span>
               </div>
 
@@ -1101,18 +1199,18 @@ export default function VirtualOffice() {
               <div className="flex items-center gap-1 pl-1 border-l border-slate-700/80">
                 <button
                   onClick={toggleTimeSpeed}
-                  className={`px-2 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
+                  className={`px-1.5 py-0.5 md:px-2 md:py-1 rounded border text-[10px] md:text-[11px] font-semibold transition-all ${
                     isTimeAccelerated
                       ? "bg-amber-500/30 text-amber-200 border-amber-500/50 hover:bg-amber-500/40"
                       : "bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-750"
                   }`}
                   title={isTimeAccelerated ? "Ubah ke Mode Waktu Nyata (Realtime)" : "Ubah ke Mode Dipercepat (1 Hari = 10 Menit)"}
                 >
-                  {isTimeAccelerated ? "⚡ Percepat Aktif" : "⚡ Percepat"}
+                  {isTimeAccelerated ? "⚡ Cepat" : "⚡ Cepat"}
                 </button>
                 <button
                   onClick={skipOneHour}
-                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[11px] font-semibold transition-all active:scale-95"
+                  className="px-1.5 py-0.5 md:px-2 md:py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[10px] md:text-[11px] font-semibold transition-all active:scale-95"
                   title="Majukan waktu 1 jam ke depan"
                 >
                   +1 Jam
@@ -1135,7 +1233,7 @@ export default function VirtualOffice() {
                     setSimulatedTimeStr(minutesToTimeString(realMin));
                     addSystemMessage(`🔄 Waktu direset kembali ke jam nyata komputer (${minutesToTimeString(realMin)} WIB)`);
                   }}
-                  className="px-1.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white text-[10px] transition-all"
+                  className="px-1 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white text-[9px] transition-all"
                   title="Reset jam kembali sinkron dengan jam nyata komputer Anda"
                 >
                   Reset
@@ -1144,118 +1242,23 @@ export default function VirtualOffice() {
             </div>
           </div>
         )}
-
-        {/* TOP RIGHT: CONTROLS & WORKSPACE INFO */}
-        <div className="order-2 md:order-3 flex items-center gap-1.5 pointer-events-auto ml-auto">
-          {/* TOGGLE CLEAN UI */}
-          <button
-            onClick={() => setIsCleanUIMode(!isCleanUIMode)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95 ${
-              isCleanUIMode
-                ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
-                : "bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60"
-            }`}
-            title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
-          >
-            {isCleanUIMode ? <Eye className="w-3.5 h-3.5 text-white" /> : <EyeOff className="w-3.5 h-3.5 text-cyan-400" />}
-            <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
-          </button>
-
-          {!isCleanUIMode && (
-            <>
-              {/* TOMBOL MASUK / KELUAR DARI KANTOR */}
-              <button
-                onClick={toggleOfficePresence}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl backdrop-blur-md text-xs font-bold transition-all shadow-md active:scale-95 border ${
-                  isInOffice
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
-                    : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
-                }`}
-                title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
-              >
-                {isInOffice ? <LogOut className="w-3.5 h-3.5 text-rose-400" /> : <LogIn className="w-3.5 h-3.5 text-emerald-400" />}
-                <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk Avatar"}</span>
-              </button>
-
-              {/* FULLSCREEN TOGGLE */}
-              <button
-                onClick={toggleFullscreen}
-                className="flex items-center gap-1 p-2 md:px-2.5 md:py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
-                title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
-              >
-                {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-emerald-400" /> : <Maximize className="w-3.5 h-3.5 text-cyan-400" />}
-              </button>
-
-              {/* DAY / NIGHT MODE TOGGLE */}
-              <button
-                onClick={() => setIsDayMode(!isDayMode)}
-                className={`p-2 md:px-2.5 md:py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95 ${
-                  isDayMode
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
-                    : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
-                }`}
-                title={isDayMode ? "Mode Malam" : "Mode Siang"}
-              >
-                {isDayMode ? <Sun className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3.5 h-3.5 text-cyan-300" />}
-              </button>
-
-              {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
-              <button
-                onClick={() => {
-                  if (zoomLevel === 1) setZoomLevel(1.5);
-                  else if (zoomLevel === 1.5) setZoomLevel(0.7);
-                  else setZoomLevel(1);
-                }}
-                className="flex items-center gap-1 p-2 md:px-2.5 md:py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
-                title="Jarak Pandang (Luas / Dekat / Normal)"
-              >
-                <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden md:inline">
-                  {zoomLevel === 1.5 ? "Luas" : zoomLevel === 0.7 ? "Dekat" : "Normal"}
-                </span>
-              </button>
-
-              {/* DAFTAR ANGGOTA */}
-              <button
-                onClick={() => {
-                  if (simulationEngineRef.current) {
-                    setNpcListState(Array.from(simulationEngineRef.current.npcStates.values()));
-                  }
-                  setIsMemberListOpen(!isMemberListOpen);
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
-              >
-                <Users className="w-3.5 h-3.5 text-cyan-400" />
-                <span>({npcListState.length + 1 + connectedPeersCount})</span>
-              </button>
-
-              <button
-                onClick={() => setIsHelpOpen(true)}
-                className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-md active:scale-95"
-                title="Panduan Kontrol"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
-        </div>
       </header>
 
-      {/* BANNER STATUS MODE PENGAWAS (HANYA MUNCUL DI POJOK KANAN BAWAH SECARA MINIMALIS & TIDAK MENUTUPI AREA TENGAH) */}
+      {/* BANNER STATUS MODE PENGAWAS (POSISI AMAN DI BAWAH HEADER AGAR TIDAK MENABRAK HUD) */}
       {!isInOffice && !isCleanUIMode && (
-        <div className="absolute top-20 right-3 z-10 pointer-events-auto bg-slate-900/90 border border-cyan-500/30 text-slate-200 px-3 py-1.5 rounded-xl backdrop-blur-md flex items-center gap-2 text-[11px] shadow-lg animate-in fade-in">
+        <div className="hidden sm:flex absolute top-20 right-3 z-10 pointer-events-auto bg-slate-900/90 border border-cyan-500/30 text-slate-200 px-3 py-1.5 rounded-xl backdrop-blur-md items-center gap-2 text-[11px] shadow-lg animate-in fade-in">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
           <span className="text-cyan-300 font-medium">Mode Kamera CCTV Aktif</span>
         </div>
       )}
 
-      {/* SPATIAL PROXIMITY RADAR / PEERS (DILETAKKAN DI KIRI ATAS SECARA RAPI TANPA MENUTUP HEADER) */}
+      {/* SPATIAL PROXIMITY RADAR / PEERS (DILETAKKAN DI KIRI ATAS DENGAN MARGIN AMAN) */}
       {peersNearby.length > 0 && isInOffice && (
-        <div className="absolute top-20 left-4 z-10 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="bg-slate-900/90 backdrop-blur-md p-3 rounded-2xl border border-cyan-500/30 shadow-xl max-w-xs text-xs">
-            <div className="flex items-center gap-2 font-semibold text-cyan-400 mb-1.5">
+        <div className="absolute top-24 md:top-20 left-2 md:left-4 z-10 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-slate-900/90 backdrop-blur-md p-2.5 md:p-3 rounded-xl md:rounded-2xl border border-cyan-500/30 shadow-xl max-w-xs text-xs">
+            <div className="flex items-center gap-2 font-semibold text-cyan-400 mb-1">
               <Volume2 className="w-3.5 h-3.5 animate-pulse" />
-              <span>Audio Spasial ({peersNearby.length} di dekat Anda)</span>
+              <span>Audio Spasial ({peersNearby.length})</span>
             </div>
             <div className="space-y-1">
               {peersNearby.map((peer) => (
@@ -1287,7 +1290,7 @@ export default function VirtualOffice() {
 
       {/* SIDEBAR: MEMBER LIST (SLIDE OUT) */}
       {isMemberListOpen && (
-        <div className="absolute top-20 right-4 z-20 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-4 shadow-2xl text-slate-200 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-16 md:top-20 right-2 md:right-4 z-40 w-[94vw] sm:w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-4 shadow-2xl text-slate-200 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
             <h3 className="font-bold text-sm flex items-center gap-2">
               <Users className="w-4 h-4 text-cyan-400" />
@@ -1665,7 +1668,7 @@ export default function VirtualOffice() {
 
       {/* CHAT DRAWER (Diletakkan di Kanan Bawah atau Kiri secara rapi, tanpa menutupi dock tengah) */}
       {!isCleanUIMode && isChatOpen && (
-        <div className="absolute bottom-16 md:bottom-20 right-3 md:right-4 z-20 w-[92vw] sm:w-80 md:w-88 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-3.5 shadow-2xl flex flex-col h-60 md:h-72 transition-all animate-in fade-in slide-in-from-bottom-4">
+        <div className="absolute bottom-16 md:bottom-20 left-2 right-2 sm:left-auto sm:right-4 z-40 sm:w-80 md:w-88 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl md:rounded-3xl p-3 md:p-3.5 shadow-2xl flex flex-col h-56 md:h-72 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5 text-cyan-400">
               <MessageSquare className="w-3.5 h-3.5" />
