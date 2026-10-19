@@ -4,13 +4,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { buildOfficeScene, createBlockyAvatar } from "@/lib/officeBuilder";
 import { INITIAL_BOTS, OFFICE_ZONES, AVATAR_COLORS } from "@/lib/mockData";
+import { PeerNetwork } from "@/lib/peerNetwork";
 import {
   MessageSquare,
   Mic,
   MicOff,
   Video,
   VideoOff,
-  Smile,
   Users,
   Settings,
   Send,
@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   Compass,
   Monitor,
+  Radio,
+  Wifi,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -29,11 +31,20 @@ export default function VirtualOffice() {
   const containerRef = useRef(null);
 
   // User state
+  const [userId, setUserId] = useState("user_init");
   const [playerName, setPlayerName] = useState("Raja (Owner)");
   const [playerStatus, setPlayerStatus] = useState("Available"); // Available | Busy | Away
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].hex);
   const [currentZone, setCurrentZone] = useState("Lobi Kantor");
   const [peersNearby, setPeersNearby] = useState([]);
+  const [connectedPeersCount, setConnectedPeersCount] = useState(0);
+
+  // Client-side initialization of user id and saved name
+  useEffect(() => {
+    const savedName = localStorage.getItem("ekalaya_name");
+    if (savedName) setPlayerName(savedName);
+    setUserId("user_" + Math.random().toString(36).substring(2, 8));
+  }, []);
 
   // Audio/Video controls
   const [isMuted, setIsMuted] = useState(true);
@@ -70,6 +81,8 @@ export default function VirtualOffice() {
   const rendererRef = useRef(null);
   const playerAvatarRef = useRef(null);
   const botsRef = useRef(new Map());
+  const peerAvatarsRef = useRef(new Map()); // Real human peers
+  const peerNetworkRef = useRef(null);
   const keysPressed = useRef({});
 
   // Trigger emote
@@ -129,13 +142,15 @@ export default function VirtualOffice() {
     setChatMessages((prev) => [...prev, newMsg]);
     setInputMessage("");
 
-    // Avatar speech balloon trigger or wave
-    if (playerAvatarRef.current) {
-      playerAvatarRef.current.userData.speechText = newMsg.text;
-      playerAvatarRef.current.userData.speechTimer = 180; // 3 seconds
+    // Broadcast chat to real peers
+    if (peerNetworkRef.current) {
+      peerNetworkRef.current.sendChat({
+        ...newMsg,
+        isOwner: false, // For other recipients
+      });
     }
 
-    // Bot automatic reply simulation
+    // Bot automatic reply simulation if addressing bots
     setTimeout(() => {
       const randomBot = INITIAL_BOTS[Math.floor(Math.random() * INITIAL_BOTS.length)];
       const replies = [
@@ -166,7 +181,7 @@ export default function VirtualOffice() {
     }
   };
 
-  // Setup 3D Three.js
+  // Setup 3D Three.js & Peer Network
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -214,7 +229,6 @@ export default function VirtualOffice() {
     dirLight.shadow.camera.bottom = -15;
     scene.add(dirLight);
 
-    // Warm accents
     const pointLight = new THREE.PointLight(0x38bdf8, 2.0, 15);
     pointLight.position.set(0, 4, 0);
     scene.add(pointLight);
@@ -256,9 +270,64 @@ export default function VirtualOffice() {
     });
     botsRef.current = botMap;
 
+    // SETUP PEER NETWORK (Multiplayer Sync)
+    const peerNetwork = new PeerNetwork(
+      "ekalaya_hq",
+      (peerId, peerData) => {
+        // Peer joined
+        if (!peerAvatarsRef.current.has(peerId) && peerData) {
+          const peerAvatar = createBlockyAvatar({
+            name: peerData.name || "Colleague",
+            color: peerData.color || "#10b981",
+            hatColor: "#059669",
+            isPlayer: false,
+            status: peerData.status || "Available",
+          });
+          peerAvatar.position.set(peerData.x || 0, 0, peerData.z || 8);
+          peerAvatar.userData.role = "Member";
+          peerAvatar.userData.task = "Berkolaborasi di Kantor";
+          scene.add(peerAvatar);
+          peerAvatarsRef.current.set(peerId, peerAvatar);
+          setConnectedPeersCount(peerAvatarsRef.current.size);
+          addSystemMessage(`${peerData.name || "Rekan kerja baru"} bergabung ke kantor virtual! 🚀`);
+        }
+      },
+      (peerId) => {
+        // Peer left
+        const avatar = peerAvatarsRef.current.get(peerId);
+        if (avatar) {
+          scene.remove(avatar);
+          peerAvatarsRef.current.delete(peerId);
+          setConnectedPeersCount(peerAvatarsRef.current.size);
+        }
+      },
+      (peerId, data) => {
+        // Peer updated position
+        const avatar = peerAvatarsRef.current.get(peerId);
+        if (avatar && data) {
+          avatar.userData.targetX = data.x;
+          avatar.userData.targetZ = data.z;
+          avatar.userData.targetRot = data.rot;
+          avatar.userData.action = data.action;
+        }
+      },
+      (chatData) => {
+        // Received real chat from another peer
+        setChatMessages((prev) => [...prev, chatData]);
+      }
+    );
+
+    peerNetwork.init(userId, {
+      name: playerName,
+      color: avatarColor,
+      status: playerStatus,
+      x: player.position.x,
+      z: player.position.z,
+    });
+    peerNetworkRef.current = peerNetwork;
+
     // KEYBOARD LISTENERS
     const handleKeyDown = (e) => {
-      // Don't move if typing in chat
       if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") {
         return;
       }
@@ -281,9 +350,10 @@ export default function VirtualOffice() {
     };
     window.addEventListener("resize", handleResize);
 
-    // ANIMATION LOOP
+    // ANIMATION & SYNC LOOP
     let animationFrameId;
     let clock = new THREE.Clock();
+    let lastNetworkSync = 0;
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -305,7 +375,6 @@ export default function VirtualOffice() {
         const isMoving = moveX !== 0 || moveZ !== 0;
 
         if (isMoving) {
-          // Normalize diagonal
           const len = Math.hypot(moveX, moveZ);
           moveX /= len;
           moveZ /= len;
@@ -313,15 +382,12 @@ export default function VirtualOffice() {
           const nextX = player.position.x + moveX * speed;
           const nextZ = player.position.z + moveZ * speed;
 
-          // Boundary checks (-10 to 10)
           if (nextX > -10 && nextX < 10) player.position.x = nextX;
           if (nextZ > -10 && nextZ < 10) player.position.z = nextZ;
 
-          // Rotate facing direction
           const targetRot = Math.atan2(moveX, moveZ);
           player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetRot, 0.25);
 
-          // Walk Animation (Swing arms & legs)
           player.userData.stepCycle += delta * 12;
           const swing = Math.sin(player.userData.stepCycle) * 0.6;
           player.userData.leftLegPivot.rotation.x = swing;
@@ -329,7 +395,6 @@ export default function VirtualOffice() {
           player.userData.leftArmPivot.rotation.x = -swing;
           player.userData.rightArmPivot.rotation.x = swing;
         } else {
-          // Reset legs & arms if idle
           if (player.userData.action === "waving") {
             player.userData.waveTimer--;
             player.userData.rightArmPivot.rotation.x = 0;
@@ -367,6 +432,20 @@ export default function VirtualOffice() {
         camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.08);
         camera.lookAt(player.position.x, player.position.y + 1.2, player.position.z);
 
+        // Send network state update (throttled 20Hz / 50ms)
+        if (time - lastNetworkSync > 0.05 && peerNetworkRef.current) {
+          lastNetworkSync = time;
+          peerNetworkRef.current.updateMyState({
+            x: player.position.x,
+            z: player.position.z,
+            rot: player.rotation.y,
+            action: isMoving ? "walking" : player.userData.action,
+            name: playerName,
+            color: avatarColor,
+            status: playerStatus,
+          });
+        }
+
         // Check Zone & Spatial Proximity
         const pX = player.position.x;
         const pZ = player.position.z;
@@ -385,7 +464,7 @@ export default function VirtualOffice() {
         }
         setCurrentZone(zoneFound);
 
-        // Check nearby peers within 4.5 meters
+        // Check nearby peers (Bots + Real peers)
         const nearby = [];
         botsRef.current.forEach((botMesh, botId) => {
           const dist = Math.hypot(pX - botMesh.position.x, pZ - botMesh.position.z);
@@ -398,10 +477,46 @@ export default function VirtualOffice() {
             });
           }
         });
+
+        peerAvatarsRef.current.forEach((pMesh, pId) => {
+          const dist = Math.hypot(pX - pMesh.position.x, pZ - pMesh.position.z);
+          if (dist < 4.8) {
+            nearby.push({
+              id: pId,
+              name: pMesh.userData.name,
+              status: pMesh.userData.status,
+              distance: dist.toFixed(1),
+            });
+          }
+        });
+
         setPeersNearby(nearby);
       }
 
-      // 2. Animate Bots (Subtle life-like breathing, typing, and swaying)
+      // 2. Interpolate Real Peer Avatars
+      peerAvatarsRef.current.forEach((peerMesh) => {
+        if (peerMesh.userData.targetX !== undefined) {
+          peerMesh.position.x = THREE.MathUtils.lerp(peerMesh.position.x, peerMesh.userData.targetX, 0.3);
+          peerMesh.position.z = THREE.MathUtils.lerp(peerMesh.position.z, peerMesh.userData.targetZ, 0.3);
+          peerMesh.rotation.y = THREE.MathUtils.lerp(peerMesh.rotation.y, peerMesh.userData.targetRot || 0, 0.3);
+
+          if (peerMesh.userData.action === "walking") {
+            peerMesh.userData.stepCycle += delta * 12;
+            const swing = Math.sin(peerMesh.userData.stepCycle) * 0.6;
+            peerMesh.userData.leftLegPivot.rotation.x = swing;
+            peerMesh.userData.rightLegPivot.rotation.x = -swing;
+            peerMesh.userData.leftArmPivot.rotation.x = -swing;
+            peerMesh.userData.rightArmPivot.rotation.x = swing;
+          } else {
+            peerMesh.userData.leftLegPivot.rotation.x = 0;
+            peerMesh.userData.rightLegPivot.rotation.x = 0;
+            peerMesh.userData.leftArmPivot.rotation.x = 0;
+            peerMesh.userData.rightArmPivot.rotation.x = 0;
+          }
+        }
+      });
+
+      // 3. Animate Bots
       botsRef.current.forEach((botMesh) => {
         if (botMesh.userData.action === "typing") {
           botMesh.userData.leftArmPivot.rotation.x = -1.2 + Math.sin(time * 8) * 0.1;
@@ -411,7 +526,6 @@ export default function VirtualOffice() {
           botMesh.userData.leftLegPivot.rotation.x = -Math.PI / 2;
           botMesh.userData.rightLegPivot.rotation.x = -Math.PI / 2;
         } else {
-          // Idle breathing
           botMesh.userData.torso.position.y = 1.05 + Math.sin(time * 2) * 0.02;
         }
       });
@@ -426,12 +540,15 @@ export default function VirtualOffice() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
+      if (peerNetworkRef.current) {
+        peerNetworkRef.current.destroy();
+      }
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
     };
-  }, [avatarColor, playerName, playerStatus]);
+  }, [avatarColor, playerName, playerStatus, userId]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
@@ -447,8 +564,9 @@ export default function VirtualOffice() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-bold tracking-tight text-white">EKALAYA 3D OFFICE</h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                PROD READY
+              <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <Wifi className="w-3 h-3 animate-pulse" />
+                LIVE SYNC
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
@@ -483,7 +601,7 @@ export default function VirtualOffice() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
           >
             <Users className="w-4 h-4 text-cyan-400" />
-            <span>Anggota ({INITIAL_BOTS.length + 1})</span>
+            <span>Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
           </button>
 
           <button
@@ -538,7 +656,7 @@ export default function VirtualOffice() {
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
             <h3 className="font-bold text-sm flex items-center gap-2">
               <Users className="w-4 h-4 text-cyan-400" />
-              Daftar Anggota Online
+              Daftar Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})
             </h3>
             <button
               onClick={() => setIsMemberListOpen(false)}
@@ -568,6 +686,25 @@ export default function VirtualOffice() {
               </div>
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20" />
             </div>
+
+            {/* Live Peer Colleagues */}
+            {Array.from(peerAvatarsRef.current.entries()).map(([peerId, peerMesh]) => (
+              <div key={peerId} className="flex items-center gap-3 p-2 rounded-xl bg-cyan-950/30 border border-cyan-500/40">
+                <div className="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center font-bold text-xs text-white">
+                  {peerMesh.userData.name ? peerMesh.userData.name[0] : "P"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-cyan-200 truncate">{peerMesh.userData.name}</p>
+                    <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-1 rounded font-medium border border-cyan-500/30">
+                      Live Peer
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Aktif bergerak di ruang kerja</p>
+                </div>
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 ring-4 ring-cyan-400/20 animate-pulse" />
+              </div>
+            ))}
 
             {/* Bots / Colleagues */}
             {INITIAL_BOTS.map((bot) => (
@@ -617,7 +754,10 @@ export default function VirtualOffice() {
                 <input
                   type="text"
                   value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
+                  onChange={(e) => {
+                    setPlayerName(e.target.value);
+                    if (typeof window !== "undefined") localStorage.setItem("ekalaya_name", e.target.value);
+                  }}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
                   placeholder="Masukkan nama Anda..."
                 />
@@ -701,6 +841,13 @@ export default function VirtualOffice() {
               </div>
 
               <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p className="font-semibold text-white mb-1">🌐 Sinkronisasi Multi-Pengguna</p>
+                <p className="text-slate-400 leading-relaxed">
+                  Buka website ini di 2 tab atau jendela browser berbeda. Anda akan melihat avatar satu sama lain bergerak secara live real-time, dan chat terkirim secara langsung antar tab tanpa server luar!
+                </p>
+              </div>
+
+              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
                 <p className="font-semibold text-white mb-1">🏢 Ruangan & Zona Kantor</p>
                 <ul className="list-disc list-inside text-slate-400 space-y-1">
                   <li><strong>Engineering Bay:</strong> Ruang kerja tim teknis & developer</li>
@@ -708,13 +855,6 @@ export default function VirtualOffice() {
                   <li><strong>Executive Meeting Room:</strong> Ruang meeting kaca dengan proyektor</li>
                   <li><strong>Relax & Coffee Lounge:</strong> Sofa santai & mesin kopi pantry</li>
                 </ul>
-              </div>
-
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-                <p className="font-semibold text-white mb-1">🚀 Status Vercel Ready</p>
-                <p className="text-slate-400 leading-relaxed">
-                  Web ini sudah siap 100% di-deploy langsung ke Vercel tanpa butuh database di awal. Integrasi database (PostgreSQL / Supabase) serta Game Server (Colyseus) dapat disambungkan kemudian sesuai dokumen konsep.
-                </p>
               </div>
             </div>
           </div>
