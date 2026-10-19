@@ -195,6 +195,17 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
   7. **Persistensi & Determinisme**: Refresh halaman atau pengguna baru masuk langsung menampilkan posisi dan aktivitas karyawan sesuai jam saat ini tanpa reset ke awal.
   8. **Interface LLM Eksternal (`lib/dialogueEngine.js`)**: Arsitektur modular `IDialogueProvider` siap disambungkan ke Claude API / OpenAI di masa mendatang.
 
+## 📅 Tahap 17: Suara Latar Kantor Alami (Office Ambience Sound Engine)
+* **Web Audio API Ambient Generator (`lib/ambienceEngine.js`)**:
+  - Dibuat menggunakan sintesis Web Audio API murni: tanpa file MP3 eksternal yang berat, zero latency, hemat kuota data, dan bebas masalah hak cipta.
+  - **Dengungan AC & Room Tone Ruang Kerja**: Frekuensi *pink/brown noise* lembut yang menenangkan layaknya suasana kantor ber-AC.
+  - **Suara Ketikan Keyboard Mekanikal/Laptop**: Tuts keyboard mengetik secara berkala dan acak (*burst typing*) mensimulasikan karyawan sedang coding/mengetik dokumen.
+  - **Suara Klik Mouse**: Klik tunggal dan *double click* alami saat karyawan bekerja di meja.
+  - **Bisik Diskusi Kejauhan (*Office Murmur*)**: Resonansi vokal halus di kejauhan memberi kesan kantor hidup dan produktif.
+* **Kontrol Header Fleksibel**:
+  - Ditambahkan tombol toggle audio **Suara (🔊/🔇)** di baris atas header web.
+  - Pengguna bebas menyalakan atau mematikan suara latar kapan saja dengan sekali sentuh/klik.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*

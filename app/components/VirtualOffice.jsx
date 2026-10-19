@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { buildOfficeScene, createBlockyAvatar } from "@/lib/officeBuilder";
 import { OFFICE_ZONES, AVATAR_COLORS, COMPANY_PROFILE } from "@/lib/mockData";
 import { OfficeSimulationEngine, minutesToTimeString } from "@/lib/simulationEngine";
+import { OfficeAmbienceEngine } from "@/lib/ambienceEngine";
 import { PeerNetwork } from "@/lib/peerNetwork";
 import {
   MessageSquare,
@@ -21,6 +22,7 @@ import {
   HelpCircle,
   Share2,
   Volume2,
+  VolumeX,
   Sparkles,
   CheckCircle2,
   Compass,
@@ -66,7 +68,9 @@ export default function VirtualOffice() {
   const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
   const [npcListState, setNpcListState] = useState([]);
 
-  // Day/Night and Camera Zoom state
+  // Day/Night, Ambience Sound and Camera Zoom state
+  const ambienceEngineRef = useRef(null);
+  const [isAmbiencePlaying, setIsAmbiencePlaying] = useState(false);
   const [isDayMode, setIsDayMode] = useState(true); // Default SIANG
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -234,6 +238,20 @@ export default function VirtualOffice() {
         isSystem: true,
       },
     ]);
+  };
+
+  // Toggle Suara Latar Kantor (Office Ambience Sound)
+  const toggleAmbienceSound = () => {
+    if (!ambienceEngineRef.current) {
+      ambienceEngineRef.current = new OfficeAmbienceEngine();
+    }
+    const state = ambienceEngineRef.current.toggle();
+    setIsAmbiencePlaying(state);
+    addSystemMessage(
+      state
+        ? "🔊 Suara Latar Kantor Aktif: Suasana AC, ketikan keyboard & klik mouse menyala."
+        : "🔇 Suara Latar Kantor Dimatikan."
+    );
   };
 
   // Toggle mode waktu dipercepat (1 hari = 10 menit vs Realtime 24 jam)
@@ -1127,6 +1145,24 @@ export default function VirtualOffice() {
                   title={isDayMode ? "Mode Malam" : "Mode Siang"}
                 >
                   {isDayMode ? <Sun className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3 h-3 text-cyan-300" />}
+                </button>
+
+                {/* SUARA LATAR ORANG KERJA (OFFICE AMBIENCE SOUND TOGGLE) */}
+                <button
+                  onClick={toggleAmbienceSound}
+                  className={`flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95 border ${
+                    isAmbiencePlaying
+                      ? "bg-cyan-500/25 text-cyan-300 border-cyan-500/50 hover:bg-cyan-500/35"
+                      : "bg-slate-900/80 text-slate-400 border-slate-700/60 hover:text-white"
+                  }`}
+                  title={isAmbiencePlaying ? "Matikan Suara Latar Kantor" : "Nyalakan Suara Latar Kantor (AC, Keyboard, Mouse)"}
+                >
+                  {isAmbiencePlaying ? (
+                    <Volume2 className="w-3 h-3 text-cyan-400 animate-pulse" />
+                  ) : (
+                    <VolumeX className="w-3 h-3 text-slate-400" />
+                  )}
+                  <span className="hidden lg:inline">{isAmbiencePlaying ? "Suara ON" : "Suara"}</span>
                 </button>
 
                 {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
