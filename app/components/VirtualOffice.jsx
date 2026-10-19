@@ -438,6 +438,9 @@ export default function VirtualOffice() {
       }
       isDraggingCamera.current = true;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
+      try {
+        e.target.setPointerCapture(e.pointerId);
+      } catch (err) {}
     };
 
     const handlePointerMove = (e) => {
@@ -447,18 +450,22 @@ export default function VirtualOffice() {
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
 
       // Orbit angles: theta (horizontal), phi (vertical)
-      cameraAngle.current.theta -= dx * 0.007;
-      cameraAngle.current.phi = Math.max(0.15, Math.min(1.2, cameraAngle.current.phi + dy * 0.005));
+      cameraAngle.current.theta -= dx * 0.008;
+      // Clamp vertical phi angle so camera doesn't flip upside down
+      cameraAngle.current.phi = Math.max(0.1, Math.min(1.35, cameraAngle.current.phi + dy * 0.006));
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (e) => {
       isDraggingCamera.current = false;
+      try {
+        e.target.releasePointerCapture(e.pointerId);
+      } catch (err) {}
     };
 
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    container.addEventListener("pointerdown", handlePointerDown);
+    container.addEventListener("pointermove", handlePointerMove);
+    container.addEventListener("pointerup", handlePointerUp);
+    container.addEventListener("pointercancel", handlePointerUp);
 
     // RESIZE & ORIENTATION CHANGE LISTENER (Mobile landscape & portrait support)
     const handleResize = () => {
@@ -715,6 +722,12 @@ export default function VirtualOffice() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
+      if (container) {
+        container.removeEventListener("pointerdown", handlePointerDown);
+        container.removeEventListener("pointermove", handlePointerMove);
+        container.removeEventListener("pointerup", handlePointerUp);
+        container.removeEventListener("pointercancel", handlePointerUp);
+      }
       if (peerNetworkRef.current) {
         peerNetworkRef.current.destroy();
       }

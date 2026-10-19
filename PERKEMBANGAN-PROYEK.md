@@ -99,6 +99,14 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
     3. **5 Tombol Emote** (👋 Halo, 🎉 Tepuk, 💃 Joget Disco, 🌀 Spin 360, ☕ Kopi) di bagian bawah.
     4. **Tombol Toggle Mata** untuk mengembalikan tampilan UI kapan saja.
 
+## 📅 Tahap 11: Perbaikan Rotasi Kamera 360° (Roblox Orbit Cam) di Desktop & HP
+* **Masalah**: Event pointer pada versi sebelumnya terdaftar di objek `window` global sehingga terhalang/ter-cancel oleh layer kanvas WebGL atau browser gesture saat touch drag di smartphone.
+* **Solusi**:
+  - Event `pointerdown`, `pointermove`, dan `pointerup` dipindahkan langsung mengikat ke kontainer kanvas WebGL 3D dengan API `setPointerCapture(pointerId)`.
+  - Sekarang rotasi kamera **100% responsif**:
+    - **Di Layar HP**: Cukup sentuh dan geser jari Anda di luar area joystick/tombol, kamera langsung berputar halus 360° horizontal dan naik/turun vertikal.
+    - **Di Desktop/Laptop**: Klik dan tahan mouse di mana saja pada kanvas 3D lalu geser mouse untuk mengitari avatar.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
