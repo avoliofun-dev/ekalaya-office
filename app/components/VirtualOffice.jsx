@@ -44,6 +44,12 @@ export default function VirtualOffice() {
     const savedName = localStorage.getItem("ekalaya_name");
     if (savedName) setPlayerName(savedName);
     setUserId("user_" + Math.random().toString(36).substring(2, 8));
+
+    // Detect mobile / touch capability
+    if (typeof window !== "undefined") {
+      const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      setIsMobileDevice(hasTouch || window.innerWidth < 768);
+    }
   }, []);
 
   // Audio/Video controls
@@ -84,6 +90,8 @@ export default function VirtualOffice() {
   const peerAvatarsRef = useRef(new Map()); // Real human peers
   const peerNetworkRef = useRef(null);
   const keysPressed = useRef({});
+  const joystickVector = useRef({ x: 0, z: 0 }); // Touch Joystick vector for mobile
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   // Trigger emote
   const triggerEmote = (emoteType) => {
@@ -371,6 +379,12 @@ export default function VirtualOffice() {
         if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) moveZ += 1;
         if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) moveX -= 1;
         if (keysPressed.current["d"] || keysPressed.current["arrowright"]) moveX += 1;
+
+        // Mobile touch joystick input
+        if (joystickVector.current.x !== 0 || joystickVector.current.z !== 0) {
+          moveX += joystickVector.current.x;
+          moveZ += joystickVector.current.z;
+        }
 
         const isMoving = moveX !== 0 || moveZ !== 0;
 
@@ -1009,6 +1023,60 @@ export default function VirtualOffice() {
           </form>
         </div>
       )}
+
+      {/* MOBILE TOUCH D-PAD / JOYSTICK CONTROLS */}
+      <div className="md:hidden absolute bottom-24 left-4 z-20 flex flex-col items-center select-none touch-none">
+        <div className="bg-slate-900/80 backdrop-blur-md p-2 rounded-3xl border border-slate-700/60 shadow-2xl">
+          {/* UP */}
+          <div className="flex justify-center">
+            <button
+              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.z = -1; }}
+              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.z = 0; }}
+              onMouseDown={() => { joystickVector.current.z = -1; }}
+              onMouseUp={() => { joystickVector.current.z = 0; }}
+              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+            >
+              ▲
+            </button>
+          </div>
+          {/* LEFT - CENTER - RIGHT */}
+          <div className="flex items-center gap-1 my-1">
+            <button
+              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.x = -1; }}
+              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.x = 0; }}
+              onMouseDown={() => { joystickVector.current.x = -1; }}
+              onMouseUp={() => { joystickVector.current.x = 0; }}
+              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+            >
+              ◀
+            </button>
+            <div className="w-12 h-12 rounded-2xl bg-slate-950/50 flex items-center justify-center text-[9px] font-bold text-slate-500">
+              MOVE
+            </div>
+            <button
+              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.x = 1; }}
+              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.x = 0; }}
+              onMouseDown={() => { joystickVector.current.x = 1; }}
+              onMouseUp={() => { joystickVector.current.x = 0; }}
+              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+            >
+              ▶
+            </button>
+          </div>
+          {/* DOWN */}
+          <div className="flex justify-center">
+            <button
+              onTouchStart={(e) => { e.preventDefault(); joystickVector.current.z = 1; }}
+              onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.z = 0; }}
+              onMouseDown={() => { joystickVector.current.z = 1; }}
+              onMouseUp={() => { joystickVector.current.z = 0; }}
+              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+            >
+              ▼
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}
       <div className="hidden lg:flex absolute bottom-6 right-6 z-10 pointer-events-none items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800 text-[11px] text-slate-400">
