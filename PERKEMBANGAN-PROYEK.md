@@ -254,6 +254,20 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
      - 🎉 **Beri Apresiasi (Praise)**: Memberi pujian performa kerja dengan efek selebrasi konfeti.
   3. **Integrasi Obrolan Kantor (Chat Feed Sync)**: Seluruh jawaban karyawan tercatat otomatis di chat kantor virtual secara rapi.
 
+## 📅 Tahap 21: Sistem Pengaman Login Kantor & Integrasi Supabase Auth
+* **Gerbang Autentikasi Kantor (Security Gate & Login Screen)**:
+  - Orang asing kini tidak bisa langsung melihat isi kantor 3D tanpa melalui proses otentikasi.
+  - Saat web dibuka, sistem menampilkan **LoginScreen** elegan bertema dark-glassmorphism.
+* **Fitur Utama yang Dihadirkan**:
+  1. **Integrasi Supabase Auth (`lib/supabase.js`)**:
+     - Menggunakan `@supabase/supabase-js` untuk manajemen akun dan login email/password.
+     - Disediakan file [.env.example](file:///c:/Users/user/Documents/PROJEK%20WEB%20RAJA/ekalaya-office/.env.example) untuk memasukkan `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` dari dashboard Supabase.
+  2. **Akses Instan Cepat Owner (Office Access PIN)**:
+     - Tersedia opsi PIN kantor darurat: `EKALAYA2026` agar Owner dapat masuk seketika kapan saja tanpa menunggu setup cloud.
+  3. **Persistensi Sesi & Tombol Logout**:
+     - Sesi pengguna tersimpan di `localStorage` sehingga tidak perlu login berulang kali saat me-refresh halaman.
+     - Ditambahkan tombol **Logout** di pojok kanan atas header untuk mengunci kembali kantor virtual.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*

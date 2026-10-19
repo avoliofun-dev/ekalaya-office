@@ -51,12 +51,12 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
-export default function VirtualOffice() {
+export default function VirtualOffice({ currentUser = null, onLogout = null }) {
   const containerRef = useRef(null);
 
   // User state & Office Presence State
-  const [userId, setUserId] = useState("user_init");
-  const [playerName, setPlayerName] = useState("Raja (Owner)");
+  const [userId, setUserId] = useState(currentUser?.id || "user_init");
+  const [playerName, setPlayerName] = useState(currentUser?.name || "Raja (Owner)");
   const [playerStatus, setPlayerStatus] = useState("Monitoring"); // Mode Pengawas Kantor
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].hex);
   const [currentZone, setCurrentZone] = useState("Ruang Pengawas Kantor");
@@ -1462,6 +1462,18 @@ export default function VirtualOffice() {
                 >
                   {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
                   <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
+                </button>
+              )}
+
+              {/* LOGOUT AKUN DARI KANTOR */}
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="p-1 md:px-2 md:py-1 rounded-lg md:rounded-xl bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-700/60 text-[10px] md:text-xs font-semibold transition-all active:scale-95"
+                  title="Kunci / Keluar Akun dari Kantor Virtual"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span className="hidden lg:inline">Logout</span>
                 </button>
               )}
             </div>
