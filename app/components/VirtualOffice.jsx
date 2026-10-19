@@ -29,6 +29,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -46,8 +48,21 @@ export default function VirtualOffice() {
   // Day/Night and Camera Zoom state
   const [isDayMode, setIsDayMode] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const ambientLightRef = useRef(null);
   const dirLightRef = useRef(null);
+
+  // Fullscreen toggle function
+  const toggleFullscreen = () => {
+    if (typeof document === "undefined") return;
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      }
+    }
+  };
 
   // Client-side initialization of user id and saved name
   useEffect(() => {
@@ -367,14 +382,25 @@ export default function VirtualOffice() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
-    // RESIZE LISTENER
+    // RESIZE & ORIENTATION CHANGE LISTENER (Mobile landscape & portrait support)
     const handleResize = () => {
       if (!container || !renderer || !camera) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     };
+
     window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", () => {
+      setTimeout(handleResize, 150);
+      setTimeout(handleResize, 400);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize);
+    }
 
     // ANIMATION & SYNC LOOP
     let animationFrameId;
@@ -613,6 +639,16 @@ export default function VirtualOffice() {
 
         {/* TOP RIGHT: CONTROLS & WORKSPACE INFO */}
         <div className="flex items-center gap-1.5 md:gap-2.5 pointer-events-auto">
+          {/* FULLSCREEN TOGGLE (Menghilangkan URL bar) */}
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+            title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh (Fullscreen)"}
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4 text-emerald-400" /> : <Maximize className="w-4 h-4 text-cyan-400" />}
+            <span className="hidden sm:inline">{isFullscreen ? "Normal" : "Fullscreen"}</span>
+          </button>
+
           {/* DAY / NIGHT MODE TOGGLE */}
           <button
             onClick={() => setIsDayMode(!isDayMode)}
@@ -1084,9 +1120,9 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* MOBILE TOUCH D-PAD / JOYSTICK CONTROLS */}
-      <div className="md:hidden absolute bottom-24 left-4 z-20 flex flex-col items-center select-none touch-none">
-        <div className="bg-slate-900/80 backdrop-blur-md p-2 rounded-3xl border border-slate-700/60 shadow-2xl">
+      {/* MOBILE TOUCH D-PAD / JOYSTICK CONTROLS (Portrait & Landscape Friendly) */}
+      <div className="md:hidden absolute bottom-16 sm:bottom-20 md:bottom-24 left-2 sm:left-4 z-20 flex flex-col items-center select-none touch-none">
+        <div className="bg-slate-900/80 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-slate-700/60 shadow-2xl scale-90 sm:scale-100 origin-bottom-left">
           {/* UP */}
           <div className="flex justify-center">
             <button
@@ -1094,23 +1130,23 @@ export default function VirtualOffice() {
               onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.z = 0; }}
               onMouseDown={() => { joystickVector.current.z = -1; }}
               onMouseUp={() => { joystickVector.current.z = 0; }}
-              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
             >
               ▲
             </button>
           </div>
           {/* LEFT - CENTER - RIGHT */}
-          <div className="flex items-center gap-1 my-1">
+          <div className="flex items-center gap-1 my-0.5 sm:my-1">
             <button
               onTouchStart={(e) => { e.preventDefault(); joystickVector.current.x = -1; }}
               onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.x = 0; }}
               onMouseDown={() => { joystickVector.current.x = -1; }}
               onMouseUp={() => { joystickVector.current.x = 0; }}
-              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
             >
               ◀
             </button>
-            <div className="w-12 h-12 rounded-2xl bg-slate-950/50 flex items-center justify-center text-[9px] font-bold text-slate-500">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-950/50 flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-slate-500">
               MOVE
             </div>
             <button
@@ -1118,7 +1154,7 @@ export default function VirtualOffice() {
               onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.x = 0; }}
               onMouseDown={() => { joystickVector.current.x = 1; }}
               onMouseUp={() => { joystickVector.current.x = 0; }}
-              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
             >
               ▶
             </button>
@@ -1130,7 +1166,7 @@ export default function VirtualOffice() {
               onTouchEnd={(e) => { e.preventDefault(); joystickVector.current.z = 0; }}
               onMouseDown={() => { joystickVector.current.z = 1; }}
               onMouseUp={() => { joystickVector.current.z = 0; }}
-              className="w-12 h-12 bg-slate-800 active:bg-cyan-500 rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-lg shadow-md transition-colors"
+              className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-800 active:bg-cyan-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-cyan-400 active:text-white font-black text-base sm:text-lg shadow-md transition-colors"
             >
               ▼
             </button>
