@@ -31,6 +31,8 @@ import {
   Maximize2,
   Maximize,
   Minimize,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -49,6 +51,7 @@ export default function VirtualOffice() {
   const [isDayMode, setIsDayMode] = useState(true); // Default SIANG
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCleanUIMode, setIsCleanUIMode] = useState(false); // Mode Bersih / Sembunyikan UI
   const rootRef = useRef(null);
   const ambientLightRef = useRef(null);
   const dirLightRef = useRef(null);
@@ -729,104 +732,124 @@ export default function VirtualOffice() {
 
       {/* TOP HEADER: BRAND, STATUS, ZONE */}
       <header className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
-        <div className="flex items-center gap-3 bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-cyan-500/25 text-white">
-            E
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold tracking-tight text-white">EKALAYA 3D OFFICE</h1>
-              <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                <Wifi className="w-3 h-3 animate-pulse" />
-                LIVE SYNC
-              </span>
+        {!isCleanUIMode ? (
+          <div className="flex items-center gap-3 bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-700/60 shadow-xl pointer-events-auto">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-cyan-500/25 text-white">
+              E
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-              <Compass className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Zona: <strong className="text-cyan-300">{currentZone}</strong></span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-bold tracking-tight text-white">EKALAYA 3D OFFICE</h1>
+                <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Wifi className="w-3 h-3 animate-pulse" />
+                  LIVE SYNC
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                <Compass className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Zona: <strong className="text-cyan-300">{currentZone}</strong></span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : <div />}
 
         {/* TOP RIGHT: CONTROLS & WORKSPACE INFO */}
         <div className="flex items-center gap-1.5 md:gap-2.5 pointer-events-auto">
-          {/* FULLSCREEN TOGGLE (Menghilangkan URL bar) */}
+          {/* TOGGLE CLEAN UI (Sembunyikan semua UI kecuali kontrol gerak & emote) */}
           <button
-            onClick={toggleFullscreen}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-            title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh (Fullscreen)"}
-          >
-            {isFullscreen ? <Minimize className="w-4 h-4 text-emerald-400" /> : <Maximize className="w-4 h-4 text-cyan-400" />}
-            <span className="hidden sm:inline">{isFullscreen ? "Normal" : "Fullscreen"}</span>
-          </button>
-
-          {/* DAY / NIGHT MODE TOGGLE */}
-          <button
-            onClick={() => setIsDayMode(!isDayMode)}
+            onClick={() => setIsCleanUIMode(!isCleanUIMode)}
             className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95 ${
-              isDayMode
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
-                : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
+              isCleanUIMode
+                ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
+                : "bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60"
             }`}
-            title={isDayMode ? "Ubah ke Mode Malam" : "Ubah ke Mode Siang"}
+            title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Gerak & Emote)"}
           >
-            {isDayMode ? <Sun className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-4 h-4 text-cyan-300" />}
-            <span className="hidden sm:inline">{isDayMode ? "Siang" : "Malam"}</span>
+            {isCleanUIMode ? <Eye className="w-4 h-4 text-white" /> : <EyeOff className="w-4 h-4 text-cyan-400" />}
+            <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan UI" : "Sembunyikan UI"}</span>
           </button>
 
-          {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
-          <button
-            onClick={() => {
-              if (zoomLevel === 1) setZoomLevel(1.5); // Wide view
-              else if (zoomLevel === 1.5) setZoomLevel(0.7); // Close view
-              else setZoomLevel(1); // Standard view
-            }}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-            title="Ubah Jarak Pandang (Lebar / Normal / Dekat)"
-          >
-            <Maximize2 className="w-4 h-4 text-cyan-400" />
-            <span className="hidden sm:inline">
-              {zoomLevel === 1.5 ? "Pandangan: Luas" : zoomLevel === 0.7 ? "Pandangan: Dekat" : "Pandangan: Normal"}
-            </span>
-            <span className="sm:hidden text-[10px] text-cyan-300 font-mono">
-              {zoomLevel === 1.5 ? "Wide" : zoomLevel === 0.7 ? "Close" : "1x"}
-            </span>
-          </button>
+          {!isCleanUIMode && (
+            <>
+              {/* FULLSCREEN TOGGLE (Menghilangkan URL bar) */}
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+                title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh (Fullscreen)"}
+              >
+                {isFullscreen ? <Minimize className="w-4 h-4 text-emerald-400" /> : <Maximize className="w-4 h-4 text-cyan-400" />}
+                <span className="hidden sm:inline">{isFullscreen ? "Normal" : "Fullscreen"}</span>
+              </button>
 
-          <button
-            onClick={handleCopyInvite}
-            className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-            title="Salin link undangan untuk rekan tim"
-          >
-            {inviteCopied ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-400">Tersalin!</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4 text-cyan-400" />
-                <span>Undang</span>
-              </>
-            )}
-          </button>
+              {/* DAY / NIGHT MODE TOGGLE */}
+              <button
+                onClick={() => setIsDayMode(!isDayMode)}
+                className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95 ${
+                  isDayMode
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+                    : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
+                }`}
+                title={isDayMode ? "Ubah ke Mode Malam" : "Ubah ke Mode Siang"}
+              >
+                {isDayMode ? <Sun className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-4 h-4 text-cyan-300" />}
+                <span className="hidden sm:inline">{isDayMode ? "Siang" : "Malam"}</span>
+              </button>
 
-          <button
-            onClick={() => setIsMemberListOpen(!isMemberListOpen)}
-            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
-          >
-            <Users className="w-4 h-4 text-cyan-400" />
-            <span className="hidden sm:inline">Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
-            <span className="sm:hidden text-xs">{INITIAL_BOTS.length + 1 + connectedPeersCount}</span>
-          </button>
+              {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
+              <button
+                onClick={() => {
+                  if (zoomLevel === 1) setZoomLevel(1.5);
+                  else if (zoomLevel === 1.5) setZoomLevel(0.7);
+                  else setZoomLevel(1);
+                }}
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+                title="Ubah Jarak Pandang (Lebar / Normal / Dekat)"
+              >
+                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">
+                  {zoomLevel === 1.5 ? "Pandangan: Luas" : zoomLevel === 0.7 ? "Pandangan: Dekat" : "Pandangan: Normal"}
+                </span>
+                <span className="sm:hidden text-[10px] text-cyan-300 font-mono">
+                  {zoomLevel === 1.5 ? "Wide" : zoomLevel === 0.7 ? "Close" : "1x"}
+                </span>
+              </button>
 
-          <button
-            onClick={() => setIsHelpOpen(true)}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-lg active:scale-95"
-            title="Panduan Kontrol & Informasi"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
+              <button
+                onClick={handleCopyInvite}
+                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+                title="Salin link undangan untuk rekan tim"
+              >
+                {inviteCopied ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span className="text-emerald-400">Tersalin!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 text-cyan-400" />
+                    <span>Undang</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsMemberListOpen(!isMemberListOpen)}
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+              >
+                <Users className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
+                <span className="sm:hidden text-xs">{INITIAL_BOTS.length + 1 + connectedPeersCount}</span>
+              </button>
+
+              <button
+                onClick={() => setIsHelpOpen(true)}
+                className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 backdrop-blur-md transition-all shadow-lg active:scale-95"
+                title="Panduan Kontrol & Informasi"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -1077,48 +1100,52 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* BOTTOM FLOATING CONTROLS DOCK (Mobile Responsive) */}
+      {/* BOTTOM FLOATING CONTROLS DOCK (Hanya tampilkan Emote jika Clean UI Mode aktif) */}
       <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 md:gap-2 bg-slate-900/90 backdrop-blur-xl px-3 md:px-5 py-2 md:py-3 rounded-2xl md:rounded-3xl border border-slate-700/80 shadow-2xl max-w-[95vw] overflow-x-auto">
-        {/* Mic Toggle */}
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
-            isMuted
-              ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
-              : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
-          }`}
-          title={isMuted ? "Nyalakan Mikrofon" : "Matikan Mikrofon (Muted)"}
-        >
-          {isMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
-        </button>
+        {!isCleanUIMode && (
+          <>
+            {/* Mic Toggle */}
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+                isMuted
+                  ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
+                  : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
+              }`}
+              title={isMuted ? "Nyalakan Mikrofon" : "Matikan Mikrofon (Muted)"}
+            >
+              {isMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
+            </button>
 
-        {/* Video Toggle */}
-        <button
-          onClick={() => setIsVideoOn(!isVideoOn)}
-          className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
-            !isVideoOn
-              ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
-              : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
-          }`}
-          title={isVideoOn ? "Matikan Kamera" : "Nyalakan Kamera"}
-        >
-          {!isVideoOn ? <VideoOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Video className="w-4 h-4 md:w-5 md:h-5" />}
-        </button>
+            {/* Video Toggle */}
+            <button
+              onClick={() => setIsVideoOn(!isVideoOn)}
+              className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+                !isVideoOn
+                  ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
+                  : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
+              }`}
+              title={isVideoOn ? "Matikan Kamera" : "Nyalakan Kamera"}
+            >
+              {!isVideoOn ? <VideoOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Video className="w-4 h-4 md:w-5 md:h-5" />}
+            </button>
 
-        {/* Screen Share Toggle */}
-        <button
-          onClick={() => setActiveScreenShare(!activeScreenShare)}
-          className={`hidden sm:flex p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
-            activeScreenShare
-              ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30"
-              : "bg-slate-800 hover:bg-slate-700 text-slate-300"
-          }`}
-          title="Berbagi Layar (Screen Share)"
-        >
-          <Monitor className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
+            {/* Screen Share Toggle */}
+            <button
+              onClick={() => setActiveScreenShare(!activeScreenShare)}
+              className={`hidden sm:flex p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+                activeScreenShare
+                  ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+              }`}
+              title="Berbagi Layar (Screen Share)"
+            >
+              <Monitor className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
 
-        <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
+            <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
+          </>
+        )}
 
         {/* Emote 1: Wave */}
         <button
@@ -1169,33 +1196,37 @@ export default function VirtualOffice() {
           <Coffee className="w-4 h-4 md:w-5 md:h-5" />
         </button>
 
-        <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
+        {!isCleanUIMode && (
+          <>
+            <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
 
-        {/* Customize Avatar Button */}
-        <button
-          onClick={() => setIsCustomizing(true)}
-          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
-          title="Ganti Baju & Pengaturan Profil"
-        >
-          <Settings className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
+            {/* Customize Avatar Button */}
+            <button
+              onClick={() => setIsCustomizing(true)}
+              className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
+              title="Ganti Baju & Pengaturan Profil"
+            >
+              <Settings className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
 
-        {/* Chat Toggle */}
-        <button
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
-            isChatOpen
-              ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25"
-              : "bg-slate-800 hover:bg-slate-700 text-slate-300"
-          }`}
-          title="Buka/Tutup Chat Kantor"
-        >
-          <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
+            {/* Chat Toggle */}
+            <button
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
+                isChatOpen
+                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+              }`}
+              title="Buka/Tutup Chat Kantor"
+            >
+              <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* CHAT DRAWER (Mobile Responsive overlay) */}
-      {isChatOpen && (
+      {/* CHAT DRAWER */}
+      {!isCleanUIMode && isChatOpen && (
         <div className="absolute bottom-16 md:bottom-24 left-3 right-3 md:right-auto md:left-4 z-20 md:w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-3.5 md:p-4 shadow-2xl flex flex-col h-64 md:h-80 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5 text-cyan-400">

@@ -88,6 +88,17 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
   - Masalah sebelumnya: saat fullscreen diaktifkan pada beberapa browser HP, elemen UI melorot atau tersembunyi karena fullscreen di-request pada elemen root HTML terluar.
   - Perbaikan: Fullscreen sekarang di-binding langsung ke komponen utama (`rootRef`) dan ditambahkan sinkronisasi `fullscreenchange` otomatis. Hasilnya, saat masuk mode fullscreen, seluruh kontrol analog joystick, tombol loncat, dock bawah, serta tombol header **tetap tampil utuh dan interaktif 100%**.
 
+## 📅 Tahap 10: Toggle Mode Bersih (Clean UI / Immersive Mode)
+* **Tombol Sembunyikan/Tampilkan UI (Eye / EyeOff)**:
+  - Ditambahkan tombol toggle baru di pojok kanan atas dengan ikon mata (<kbd>👁️ Sembunyikan UI</kbd>).
+* **Fokus Penuh pada Gerak & Emote**:
+  - Saat tombol ini diaktifkan, seluruh elemen non-esensial (nama kantor, zona radar, chat drawer, panel anggota, tombol mic, kamera, share screen, dan setting) otomatis disembunyikan secara rapi.
+  - **Yang Tetap Aktif & Tampil**:
+    1. **Analog Joystick 360° (Mobile Legends)** di pojok kiri bawah untuk berjalan.
+    2. **Tombol Loncat (Jump)** di pojok kanan bawah.
+    3. **5 Tombol Emote** (👋 Halo, 🎉 Tepuk, 💃 Joget Disco, 🌀 Spin 360, ☕ Kopi) di bagian bawah.
+    4. **Tombol Toggle Mata** untuk mengembalikan tampilan UI kapan saja.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
