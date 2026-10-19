@@ -45,6 +45,8 @@ import {
   Pause,
   FastForward,
   SkipForward,
+  RotateCcw,
+  RotateCw,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -180,10 +182,34 @@ export default function VirtualOffice() {
   const joystickVector = useRef({ x: 0, z: 0 }); // Touch Joystick vector for mobile
   const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-  // Roblox-style camera rotation state (mouse drag / touch swipe)
+  // 360 camera rotation state (mouse drag / touch swipe / rotation buttons)
   const cameraAngle = useRef({ theta: 0, phi: 0.45 }); // Orbit angles
   const isDraggingCamera = useRef(false);
   const lastPointerPos = useRef({ x: 0, y: 0 });
+
+  // Function to rotate camera smoothly by delta radians (e.g. 45 degrees = Math.PI / 4)
+  const rotateCamera = (deltaTheta = Math.PI / 4, deltaPhi = 0) => {
+    cameraAngle.current.theta += deltaTheta;
+    if (deltaPhi !== 0) {
+      cameraAngle.current.phi = Math.max(0.05, Math.min(1.48, cameraAngle.current.phi + deltaPhi));
+    }
+  };
+
+  // Reset or set camera preset angle
+  const setCameraViewPreset = (preset) => {
+    if (preset === "front") {
+      cameraAngle.current.theta = 0;
+      cameraAngle.current.phi = 0.45;
+    } else if (preset === "side") {
+      cameraAngle.current.theta = Math.PI / 2;
+      cameraAngle.current.phi = 0.45;
+    } else if (preset === "back") {
+      cameraAngle.current.theta = Math.PI;
+      cameraAngle.current.phi = 0.45;
+    } else if (preset === "top") {
+      cameraAngle.current.phi = 1.45; // Top-down bird's-eye view
+    }
+  };
 
   // Jump physics state
   const playerVelocityY = useRef(0);
@@ -560,16 +586,23 @@ export default function VirtualOffice() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
-    // ROBLOX-STYLE TOUCH / MOUSE CAMERA ROTATION
+    // 360-DEGREE TOUCH / MOUSE CAMERA ROTATION (OPTIMIZED FOR SMARTPHONE & DESKTOP)
     const handlePointerDown = (e) => {
-      // Don't drag camera if touching joystick or UI buttons
-      if (e.target.closest("button") || e.target.closest("input") || e.target.closest(".touch-none")) {
+      // Don't drag camera if interacting with clickable UI buttons, inputs or modals
+      if (
+        e.target.closest("button") ||
+        e.target.closest("input") ||
+        e.target.closest("textarea") ||
+        e.target.closest(".interactive-ui")
+      ) {
         return;
       }
       isDraggingCamera.current = true;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
       try {
-        e.target.setPointerCapture(e.pointerId);
+        if (e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+        }
       } catch (err) {}
     };
 
@@ -579,23 +612,29 @@ export default function VirtualOffice() {
       const dy = e.clientY - lastPointerPos.current.y;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
 
-      // Orbit angles: theta (horizontal), phi (vertical)
-      cameraAngle.current.theta -= dx * 0.008;
-      // Clamp vertical phi angle so camera doesn't flip upside down
-      cameraAngle.current.phi = Math.max(0.1, Math.min(1.35, cameraAngle.current.phi + dy * 0.006));
+      // Orbit angles: theta (horizontal 360°), phi (vertical pitch)
+      // Enhanced touch sensitivity on mobile devices for smooth thumb swipe
+      const sens = e.pointerType === "touch" ? 0.012 : 0.008;
+      cameraAngle.current.theta -= dx * sens;
+
+      // Expanded vertical phi clamp so user can look from high top-down down to near floor level
+      cameraAngle.current.phi = Math.max(0.05, Math.min(1.48, cameraAngle.current.phi + dy * (sens * 0.75)));
     };
 
     const handlePointerUp = (e) => {
+      if (!isDraggingCamera.current) return;
       isDraggingCamera.current = false;
       try {
-        e.target.releasePointerCapture(e.pointerId);
+        if (e.target.releasePointerCapture) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
       } catch (err) {}
     };
 
-    container.addEventListener("pointerdown", handlePointerDown);
-    container.addEventListener("pointermove", handlePointerMove);
-    container.addEventListener("pointerup", handlePointerUp);
-    container.addEventListener("pointercancel", handlePointerUp);
+    container.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerup", handlePointerUp, { passive: true });
+    window.addEventListener("pointercancel", handlePointerUp, { passive: true });
 
     // RESIZE & ORIENTATION CHANGE LISTENER (Mobile landscape & portrait support)
     const handleResize = () => {
@@ -1049,10 +1088,10 @@ export default function VirtualOffice() {
       window.removeEventListener("resize", handleResize);
       if (container) {
         container.removeEventListener("pointerdown", handlePointerDown);
-        container.removeEventListener("pointermove", handlePointerMove);
-        container.removeEventListener("pointerup", handlePointerUp);
-        container.removeEventListener("pointercancel", handlePointerUp);
       }
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
       if (peerNetworkRef.current) {
         peerNetworkRef.current.destroy();
       }
@@ -1065,8 +1104,8 @@ export default function VirtualOffice() {
 
   return (
     <div ref={rootRef} className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
-      {/* 3D WEBGL VIEWPORT */}
-      <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
+      {/* 3D WEBGL VIEWPORT (TOUCH-NONE AGAR SWIPE TIDAK DIINTERSEPSI OLEH BROWSER GESTURE HP) */}
+      <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none select-none" />
 
       {/* TOP HEADER: BRAND, WORK CYCLE HUD & ACTIONS */}
       <header className="absolute top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-2 pointer-events-none z-20">
@@ -1145,6 +1184,24 @@ export default function VirtualOffice() {
                   title={isDayMode ? "Mode Malam" : "Mode Siang"}
                 >
                   {isDayMode ? <Sun className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-3 h-3 text-cyan-300" />}
+                </button>
+
+                {/* QUICK ROTATE ROOM 360 BUTTONS */}
+                <button
+                  onClick={() => rotateCamera(Math.PI / 4)}
+                  className="flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
+                  title="Putar Ruangan ke Kiri (45°)"
+                >
+                  <RotateCcw className="w-3 h-3 text-cyan-400" />
+                  <span className="hidden md:inline">Putar ↺</span>
+                </button>
+                <button
+                  onClick={() => rotateCamera(-Math.PI / 4)}
+                  className="flex items-center gap-1 p-1.5 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-[10px] md:text-xs font-semibold transition-all shadow-md active:scale-95"
+                  title="Putar Ruangan ke Kanan (45°)"
+                >
+                  <RotateCw className="w-3 h-3 text-cyan-400" />
+                  <span className="hidden md:inline">Putar ↻</span>
                 </button>
 
                 {/* SUARA LATAR ORANG KERJA (OFFICE AMBIENCE SOUND TOGGLE) */}
@@ -1803,7 +1860,27 @@ export default function VirtualOffice() {
           </div>
 
           {/* 2. JUMP BUTTON & ACTION CONTROLS (RIGHT SIDE) */}
-          <div className="md:hidden absolute bottom-12 right-5 z-20 flex flex-col items-center gap-2 select-none touch-none">
+          <div className="md:hidden absolute bottom-12 right-4 z-20 flex flex-col items-center gap-2 select-none touch-none">
+            {/* QUICK ROTATE LEFT / RIGHT BUTTONS ON MOBILE */}
+            <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-cyan-500/30 shadow-xl">
+              <button
+                onTouchStart={(e) => { e.preventDefault(); rotateCamera(Math.PI / 4); }}
+                onClick={() => rotateCamera(Math.PI / 4)}
+                className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 active:bg-cyan-600 flex items-center justify-center text-cyan-300 font-bold shadow-md"
+                title="Putar Ruangan Kiri 45°"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </button>
+              <button
+                onTouchStart={(e) => { e.preventDefault(); rotateCamera(-Math.PI / 4); }}
+                onClick={() => rotateCamera(-Math.PI / 4)}
+                className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 active:bg-cyan-600 flex items-center justify-center text-cyan-300 font-bold shadow-md"
+                title="Putar Ruangan Kanan 45°"
+              >
+                <RotateCw className="w-5 h-5" />
+              </button>
+            </div>
+
             {/* JUMP ACTION BUTTON (Besar ala MLBB) */}
             <button
               onTouchStart={(e) => { e.preventDefault(); triggerJump(); }}
@@ -1815,11 +1892,46 @@ export default function VirtualOffice() {
             </button>
 
             {/* ROTATE CAM HINT */}
-            <div className="bg-slate-900/70 border border-slate-700/60 px-2 py-1 rounded-lg text-[9px] text-cyan-300 pointer-events-none">
-              👆 Geser layar untuk putar kamera
+            <div className="bg-slate-900/80 border border-cyan-500/40 px-2 py-0.5 rounded-lg text-[9px] text-cyan-300 pointer-events-none text-center">
+              👆 Geser / Tombol ↺ ↻
             </div>
           </div>
         </>
+      )}
+
+      {/* QUICK CAMERA VIEW ANGLE CONTROLS FOR MONITORING MODE (Saat avatar disembunyikan) */}
+      {!isInOffice && (
+        <div className="md:hidden absolute bottom-16 right-4 z-20 flex flex-col items-end gap-1.5 select-none touch-none">
+          <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-cyan-500/40 shadow-2xl">
+            <button
+              onTouchStart={(e) => { e.preventDefault(); rotateCamera(Math.PI / 4); }}
+              onClick={() => rotateCamera(Math.PI / 4)}
+              className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-cyan-300 active:bg-cyan-600 shadow-md"
+              title="Putar Kiri 45°"
+            >
+              <RotateCcw className="w-5 h-5" />
+            </button>
+            <button
+              onTouchStart={(e) => { e.preventDefault(); rotateCamera(-Math.PI / 4); }}
+              onClick={() => rotateCamera(-Math.PI / 4)}
+              className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-cyan-300 active:bg-cyan-600 shadow-md"
+              title="Putar Kanan 45°"
+            >
+              <RotateCw className="w-5 h-5" />
+            </button>
+            <button
+              onTouchStart={(e) => { e.preventDefault(); setCameraViewPreset("top"); }}
+              onClick={() => setCameraViewPreset("top")}
+              className="px-2 py-2 rounded-xl bg-slate-800 border border-slate-700 text-[10px] font-bold text-cyan-300 active:bg-cyan-600 shadow-md"
+              title="Lihat Dari Atas (Top-Down)"
+            >
+              Top-Down
+            </button>
+          </div>
+          <span className="text-[9px] bg-slate-900/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">
+            Geser layar atau tekan ↺ ↻ untuk putar
+          </span>
+        </div>
       )}
 
       {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}
