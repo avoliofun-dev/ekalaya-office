@@ -7,6 +7,10 @@ import { OFFICE_ZONES, AVATAR_COLORS, COMPANY_PROFILE } from "@/lib/mockData";
 import { OfficeSimulationEngine, minutesToTimeString } from "@/lib/simulationEngine";
 import { OfficeAmbienceEngine } from "@/lib/ambienceEngine";
 import { PeerNetwork } from "@/lib/peerNetwork";
+import CrmWorkspaceModal from "./CrmWorkspaceModal";
+import PricingModal from "./PricingModal";
+import AdminDashboardModal from "./AdminDashboardModal";
+import { getStoredSubscription } from "@/lib/subscriptionStore";
 import {
   MessageSquare,
   Mic,
@@ -24,6 +28,7 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
+  ShieldCheck,
   CheckCircle2,
   Compass,
   Monitor,
@@ -38,6 +43,7 @@ import {
   Minimize,
   Eye,
   EyeOff,
+  Sliders,
   LogIn,
   LogOut,
   Clock,
@@ -63,6 +69,13 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
   const [isInOffice, setIsInOffice] = useState(false); // Default: Avatar disembunyikan (Mode Pengawas 24 Jam)
   const [peersNearby, setPeersNearby] = useState([]);
   const [connectedPeersCount, setConnectedPeersCount] = useState(0);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [livePeersList, setLivePeersList] = useState([]);
+  const [isCrmModalOpen, setIsCrmModalOpen] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [activeSubscription, setActiveSubscription] = useState(null);
+  const joystickThumbRef = useRef(null);
 
   // 24-HOUR SIMULATION ENGINE STATE
   const simulationEngineRef = useRef(null);
@@ -77,7 +90,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
   const [isDayMode, setIsDayMode] = useState(true); // Default SIANG
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isCleanUIMode, setIsCleanUIMode] = useState(false); // Mode Bersih / Sembunyikan UI
+  const [isHUDVisible, setIsHUDVisible] = useState(false); // Mode Bersih Default: Semua tombol TERSEMBUNYI, hanya muncul jika di-toggle ON
   const rootRef = useRef(null);
   const ambientLightRef = useRef(null);
   const dirLightRef = useRef(null);
@@ -117,29 +130,41 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
     };
   }, []);
 
-  // Client-side initialization of user id and saved name
+  // Client-side initialization of user id, saved name, and simulation time
   useEffect(() => {
-    // Client-side initialization of user id, saved name, and simulation time
-    const savedName = localStorage.getItem("ekalaya_name");
-    if (savedName) setPlayerName(savedName);
-    setUserId("user_" + Math.random().toString(36).substring(2, 8));
+    let active = true;
+    Promise.resolve().then(() => {
+      if (!active) return;
+      try {
+        const savedName = localStorage.getItem("ekalaya_name");
+        if (savedName) setPlayerName(savedName);
+        setUserId("user_" + Math.random().toString(36).substring(2, 8));
 
-    // Hydrate simulation time & accelerated state safely on client
-    const savedAcc = localStorage.getItem("ekalaya_sim_accelerated") === "true";
-    setIsTimeAccelerated(savedAcc);
-    const savedSim = localStorage.getItem("ekalaya_sim_minutes");
-    if (savedSim) {
-      setSimulatedTimeStr(minutesToTimeString(parseFloat(savedSim)));
-    } else {
-      const now = new Date();
-      setSimulatedTimeStr(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
-    }
+        // Hydrate simulation time & accelerated state safely on client
+        const savedAcc = localStorage.getItem("ekalaya_sim_accelerated") === "true";
+        setIsTimeAccelerated(savedAcc);
+        const savedSim = localStorage.getItem("ekalaya_sim_minutes");
+        if (savedSim) {
+          setSimulatedTimeStr(minutesToTimeString(parseFloat(savedSim)));
+        } else {
+          const now = new Date();
+          setSimulatedTimeStr(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+        }
 
-    // Detect mobile / touch capability
-    if (typeof window !== "undefined") {
-      const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-      setIsMobileDevice(hasTouch || window.innerWidth < 768);
-    }
+        // Detect mobile / touch capability
+        if (typeof window !== "undefined") {
+          const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+          setIsMobileDevice(hasTouch || window.innerWidth < 768);
+          setActiveSubscription(getStoredSubscription());
+        }
+      } catch (err) {
+        console.error("Gagal inisialisasi client:", err);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Audio/Video controls
@@ -192,12 +217,14 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
   const peerNetworkRef = useRef(null);
   const keysPressed = useRef({});
   const joystickVector = useRef({ x: 0, z: 0 }); // Touch Joystick vector for mobile
-  const [isMobileDevice, setIsMobileDevice] = useState(false);
 
   // 360 camera rotation state (mouse drag / touch swipe / rotation buttons)
   const cameraAngle = useRef({ theta: 0, phi: 0.45 }); // Orbit angles
   const isDraggingCamera = useRef(false);
+  const dragMode = useRef("orbit"); // "orbit" (left click / touch) or "pan" (right click / middle click)
   const lastPointerPos = useRef({ x: 0, y: 0 });
+  const cameraPanOffset = useRef({ x: 0, y: 0, z: 0 }); // Camera translation / pan offset
+  const zoomFactorRef = useRef(1.0); // Mouse wheel zoom multiplier
 
   // Function to rotate camera smoothly by delta radians (e.g. 45 degrees = Math.PI / 4)
   const rotateCamera = (deltaTheta = Math.PI / 4, deltaPhi = 0) => {
@@ -224,6 +251,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
   };
 
   const setCameraViewPreset = (preset) => {
+    cameraPanOffset.current = { x: 0, y: 0, z: 0 };
     if (preset === "front") {
       cameraAngle.current.theta = 0;
       cameraAngle.current.phi = 0.45;
@@ -452,10 +480,11 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
     camera.position.set(0, 10, 14);
     cameraRef.current = camera;
 
-    // RENDERER
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+    // RENDERER DENGAN ADAPTIVE PERFORMANCE (PHASE 4 OPTIMIZATION)
+    const isMobileScreen = typeof window !== "undefined" && (window.innerWidth < 768 || navigator.maxTouchPoints > 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: !isMobileScreen, alpha: false, powerPreference: "high-performance" });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(isMobileScreen ? 1.0 : Math.min(window.devicePixelRatio, 1.75));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.innerHTML = "";
@@ -474,8 +503,8 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
     const dirLight = new THREE.DirectionalLight(sunColor, sunIntensity);
     dirLight.position.set(12, 25, 12);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.mapSize.width = isMobileScreen ? 1024 : 2048;
+    dirLight.shadow.mapSize.height = isMobileScreen ? 1024 : 2048;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = 45;
     dirLight.shadow.camera.left = -18;
@@ -561,6 +590,10 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           scene.add(peerAvatar);
           peerAvatarsRef.current.set(peerId, peerAvatar);
           setConnectedPeersCount(peerAvatarsRef.current.size);
+          setLivePeersList((prev) => [
+            ...prev.filter((p) => p.id !== peerId),
+            { id: peerId, name: peerData.name || "Colleague" },
+          ]);
           addSystemMessage(`${peerData.name || "Rekan kerja baru"} bergabung ke kantor virtual! 🚀`);
         }
       },
@@ -571,6 +604,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           scene.remove(avatar);
           peerAvatarsRef.current.delete(peerId);
           setConnectedPeersCount(peerAvatarsRef.current.size);
+          setLivePeersList((prev) => prev.filter((p) => p.id !== peerId));
         }
       },
       (peerId, data) => {
@@ -616,8 +650,9 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
-    // 360-DEGREE TOUCH / MOUSE CAMERA ROTATION & 3D OBJECT RAYCASTING
-    const pointerStartPos = { x: 0, y: 0, time: 0 };
+    // 360-DEGREE TOUCH / MOUSE CAMERA CONTROLS & 3D OBJECT RAYCASTING
+    // Left-Click: Orbit Rotation 360° | Right-Click: Panning Kamera | Scroll: Zoom In/Out
+    const pointerStartPos = { x: 0, y: 0, time: 0, button: 0 };
     const raycaster = new THREE.Raycaster();
     const mouseCoord = new THREE.Vector2();
 
@@ -631,10 +666,19 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       ) {
         return;
       }
+
+      // 0 = Left click (Orbit / Click), 2 = Right click (Pan), 1 = Middle click (Pan)
+      if (e.button === 2 || e.button === 1) {
+        dragMode.current = "pan";
+      } else {
+        dragMode.current = "orbit";
+      }
+
       isDraggingCamera.current = true;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
       pointerStartPos.x = e.clientX;
       pointerStartPos.y = e.clientY;
+      pointerStartPos.button = e.button;
       pointerStartPos.time = Date.now();
       try {
         if (e.target.setPointerCapture) {
@@ -649,13 +693,27 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       const dy = e.clientY - lastPointerPos.current.y;
       lastPointerPos.current = { x: e.clientX, y: e.clientY };
 
-      // Orbit angles: theta (horizontal 360°), phi (vertical pitch)
-      // Enhanced touch sensitivity on mobile devices for smooth thumb swipe
-      const sens = e.pointerType === "touch" ? 0.012 : 0.008;
-      cameraAngle.current.theta -= dx * sens;
+      if (dragMode.current === "pan") {
+        // GESER KAMERA (PANNING KANAN / KIRI / DEPAN / BELAKANG) DENGAN KLIK KANAN
+        const theta = cameraAngle.current.theta;
+        const rightX = Math.cos(theta);
+        const rightZ = -Math.sin(theta);
+        const fwdX = -Math.sin(theta);
+        const fwdZ = -Math.cos(theta);
 
-      // Expanded vertical phi clamp so user can look from high top-down down to near floor level
-      cameraAngle.current.phi = Math.max(0.05, Math.min(1.48, cameraAngle.current.phi + dy * (sens * 0.75)));
+        const panSpeed = 0.022 * (zoomFactorRef.current || 1.0);
+        cameraPanOffset.current.x -= (dx * rightX - dy * fwdX) * panSpeed;
+        cameraPanOffset.current.z -= (dx * rightZ - dy * fwdZ) * panSpeed;
+
+        // Batasi rentang pan agar pandangan tidak keluar jauh dari area kantor
+        cameraPanOffset.current.x = Math.max(-25, Math.min(25, cameraPanOffset.current.x));
+        cameraPanOffset.current.z = Math.max(-25, Math.min(25, cameraPanOffset.current.z));
+      } else {
+        // ROTASI KAMERA 360° (ORBIT THETA & PHI) DENGAN KLIK KIRI ATAU TOUCH
+        const sens = e.pointerType === "touch" ? 0.012 : 0.008;
+        cameraAngle.current.theta -= dx * sens;
+        cameraAngle.current.phi = Math.max(0.05, Math.min(1.48, cameraAngle.current.phi + dy * (sens * 0.75)));
+      }
     };
 
     const handlePointerUp = (e) => {
@@ -667,14 +725,14 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         }
       } catch (err) {}
 
-      // Deteksi Klik (Bukan Drag): jika pergerakan kursor < 8px dan durasi < 300ms
+      // Deteksi Klik (Bukan Drag): HANYA jika Klik Kiri (button 0), pergerakan kursor < 8px dan durasi < 350ms
       const movedDist = Math.hypot(
         e.clientX - pointerStartPos.x,
         e.clientY - pointerStartPos.y
       );
       const tapDuration = Date.now() - pointerStartPos.time;
 
-      if (movedDist < 8 && tapDuration < 350 && sceneRef.current && cameraRef.current) {
+      if (pointerStartPos.button === 0 && movedDist < 8 && tapDuration < 350 && sceneRef.current && cameraRef.current) {
         const rect = container.getBoundingClientRect();
         mouseCoord.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouseCoord.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -771,6 +829,20 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
               return;
             }
 
+            // 4b. Interaksi Meja Sales & CRM / Asisten AI
+            if (data.interactType === "salesDesk") {
+              setIsCrmModalOpen(true);
+              addSystemMessage(`💼 ${playerName} membuka Meja Kerja CRM & AI Sales Assistant.`);
+              return;
+            }
+
+            // 4c. Interaksi Konsol Eksekutif & Admin Platform
+            if (data.interactType === "adminConsole") {
+              setIsAdminModalOpen(true);
+              addSystemMessage(`🛡️ ${playerName} membuka Konsol Administrasi Platform.`);
+              return;
+            }
+
             // 5. Interaksi Kursi / Sofa
             if (data.interactType === "chair" || data.interactType === "sofa") {
               if (playerAvatarRef.current && isInOffice) {
@@ -798,7 +870,32 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       }
     };
 
-    container.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    // MOUSE SCROLL WHEEL ZOOM IN / ZOOM OUT
+    const handleWheel = (e) => {
+      // Don't intercept zoom if scrolling inside interactive scrollable modals or chat
+      if (
+        e.target.closest("textarea") ||
+        e.target.closest(".overflow-y-auto") ||
+        e.target.closest(".overflow-auto") ||
+        e.target.closest("[role='dialog']")
+      ) {
+        return;
+      }
+      e.preventDefault();
+      const zoomDelta = e.deltaY * 0.0015;
+      zoomFactorRef.current = Math.max(0.35, Math.min(2.5, (zoomFactorRef.current || 1.0) + zoomDelta));
+    };
+
+    // Mencegah menu konteks browser muncul saat klik kanan pada canvas 3D
+    const handleContextMenu = (e) => {
+      if (!e.target.closest("input") && !e.target.closest("textarea")) {
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener("pointerdown", handlePointerDown);
+    container.addEventListener("contextmenu", handleContextMenu);
+    container.addEventListener("wheel", handleWheel, { passive: false });
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
     window.addEventListener("pointerup", handlePointerUp, { passive: true });
     window.addEventListener("pointercancel", handlePointerUp, { passive: true });
@@ -1024,15 +1121,15 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           }
         }
 
-        // Spherical Orbit Camera: Mode Pengawas Kantor (Panoramic Overview) atau Mengikuti Player
-        const camDistance = (isInOffice ? 11.0 : 16.5) * zoomLevel;
+        // Spherical Orbit Camera: Mode Pengawas Kantor atau Mengikuti Player + Panning Target + Smooth Zoom
+        const camDistance = (isInOffice ? 11.0 : 16.5) * zoomLevel * (zoomFactorRef.current || 1.0);
         const theta = cameraAngle.current.theta;
         const phi = cameraAngle.current.phi;
 
-        // Titik fokus kamera: ke tengah kantor (0, 1.2, 0) jika avatar dibuang/pengawas, atau ke avatar jika sedang masuk kantor
-        const focusX = isInOffice ? player.position.x : 0;
-        const focusY = isInOffice ? player.position.y + 1.2 : 1.2;
-        const focusZ = isInOffice ? player.position.z : 0;
+        // Titik fokus kamera: ke tengah kantor (0, 1.2, 0) jika pengawas, atau ke avatar jika sedang masuk kantor, ditambah cameraPanOffset
+        const focusX = (isInOffice ? player.position.x : 0) + cameraPanOffset.current.x;
+        const focusY = (isInOffice ? player.position.y + 1.2 : 1.2);
+        const focusZ = (isInOffice ? player.position.z : 0) + cameraPanOffset.current.z;
 
         const targetCamX = focusX + camDistance * Math.sin(theta) * Math.cos(phi);
         const targetCamY = focusY + camDistance * Math.sin(phi) + 2.0;
@@ -1255,6 +1352,8 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       window.removeEventListener("resize", handleResize);
       if (container) {
         container.removeEventListener("pointerdown", handlePointerDown);
+        container.removeEventListener("contextmenu", handleContextMenu);
+        container.removeEventListener("wheel", handleWheel);
       }
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
@@ -1267,6 +1366,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       }
       renderer.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avatarColor, playerName, playerStatus, userId, isDayMode, zoomLevel]);
 
   return (
@@ -1274,13 +1374,29 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       {/* 3D WEBGL VIEWPORT (TOUCH-NONE AGAR SWIPE TIDAK DIINTERSEPSI OLEH BROWSER GESTURE HP) */}
       <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none select-none" />
 
-      {/* TOP HEADER: BRAND, WORK CYCLE HUD & ACTIONS */}
-      <header className="absolute top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-2 pointer-events-none z-20">
-        {/* ROW 1: BRAND LOGO (KIRI) & REST OF CONTROLS (KIRI/TENGAH) + PENGATURAN (KANAN) */}
-        <div className="w-full flex items-center justify-between pointer-events-none gap-2">
-          {/* SISI KIRI: BRAND LOGO + KELOMPOK KAMERA / VIEW + SUASANA & AUDIO */}
-          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
-            {!isCleanUIMode && (
+      {/* 1. FLOATING MINIMAL TOGGLE ON BUTTON (DEFAULT: KETIKA SEMUA KONTROL TERSEMBUNYI) */}
+      {!isHUDVisible && (
+        <div className="fixed top-3 right-3 z-50 animate-in fade-in zoom-in-95 duration-200">
+          <button
+            onClick={() => setIsHUDVisible(true)}
+            className="flex items-center gap-2.5 bg-slate-900/85 hover:bg-slate-900/95 backdrop-blur-xl px-4 py-2 rounded-full border border-cyan-500/40 text-slate-200 hover:text-white shadow-2xl hover:shadow-cyan-500/25 active:scale-95 transition-all text-xs font-semibold group"
+            title="Tampilkan Menu & Kontrol Kantor"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse group-hover:scale-125 transition-transform" />
+            <Sliders className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-90 transition-transform duration-300" />
+            <span className="text-cyan-300 font-bold">Tampilkan Kontrol</span>
+            <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+          </button>
+        </div>
+      )}
+
+      {/* 2. TOP HEADER HUD (HANYA MUNCUL JIKA isHUDVisible AKTIF) */}
+      {isHUDVisible && (
+        <header className="absolute top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-2 pointer-events-none z-20 animate-in fade-in slide-in-from-top-4 duration-200">
+          {/* ROW 1: BRAND LOGO (KIRI) & REST OF CONTROLS (KIRI/TENGAH) + PENGATURAN (KANAN) */}
+          <div className="w-full flex items-center justify-between pointer-events-none gap-2">
+            {/* SISI KIRI: BRAND LOGO + KELOMPOK KAMERA / VIEW + SUASANA & AUDIO */}
+            <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto flex-wrap">
               <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl md:rounded-2xl border border-slate-700/60 shadow-xl">
                 <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-xs md:text-sm shadow-md shadow-cyan-500/25 text-white">
                   E
@@ -1299,67 +1415,32 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                   </div>
                 </div>
               </div>
-            )}
 
-            {!isCleanUIMode && (
-              <>
-                {/* KELOMPOK KAMERA & SUDUT PANDANG (VIEW DOCK DI SISI KIRI) */}
-                <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-cyan-500/30 shadow-lg gap-0.5 sm:gap-1">
-                  {/* TOP-DOWN / ISOMETRIC TOGGLE */}
-                  <button
-                    onClick={toggleCameraTopDown}
-                    className={`flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
-                      isTopDownView
-                        ? "bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-500/30"
-                        : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700/60"
-                    }`}
-                    title={isTopDownView ? "Kembali ke Tampilan 3D Normal" : "Ubah ke Tampilan Top-Down (Denah Atas)"}
-                  >
-                    <MapIcon className="w-3 h-3 text-cyan-300" />
-                    <span className="hidden md:inline">{isTopDownView ? "Top-Down" : "3D"}</span>
-                  </button>
+              {/* KELOMPOK KAMERA & SUDUT PANDANG (VIEW DOCK DI SISI KIRI) */}
+              <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-cyan-500/30 shadow-lg gap-1">
+                {/* TOP-DOWN / ISOMETRIC TOGGLE */}
+                <button
+                  onClick={toggleCameraTopDown}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] md:text-xs font-semibold transition-all active:scale-95 border ${
+                    isTopDownView
+                      ? "bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-500/30"
+                      : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700/60"
+                  }`}
+                  title={isTopDownView ? "Kembali ke Tampilan 3D Normal" : "Ubah ke Tampilan Top-Down (Denah Atas)"}
+                >
+                  <MapIcon className="w-3 h-3 text-cyan-300" />
+                  <span>{isTopDownView ? "Top-Down" : "3D"}</span>
+                </button>
 
-                  {/* QUICK ROTATE 45° BUTTONS */}
-                  <button
-                    onClick={() => rotateCamera(Math.PI / 4)}
-                    className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
-                    title="Putar Ruangan ke Kiri 45°"
-                  >
-                    <RotateCcw className="w-3 h-3 text-cyan-400" />
-                  </button>
-                  <button
-                    onClick={() => rotateCamera(-Math.PI / 4)}
-                    className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
-                    title="Putar Ruangan ke Kanan 45°"
-                  >
-                    <RotateCw className="w-3 h-3 text-cyan-400" />
-                  </button>
-
-                  {/* ZOOM LEVEL TOGGLE */}
-                  <button
-                    onClick={() => {
-                      if (zoomLevel === 1) setZoomLevel(1.5);
-                      else if (zoomLevel === 1.5) setZoomLevel(0.7);
-                      else setZoomLevel(1);
-                    }}
-                    className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
-                    title="Jarak Pandang (Luas / Dekat / Normal)"
-                  >
-                    <Maximize2 className="w-3 h-3 text-cyan-400" />
-                    <span className="hidden lg:inline">
-                      {zoomLevel === 1.5 ? "Luas" : zoomLevel === 0.7 ? "Dekat" : "Normal"}
-                    </span>
-                  </button>
-
-                  {/* FULLSCREEN TOGGLE */}
-                  <button
-                    onClick={toggleFullscreen}
-                    className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
-                    title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
-                  >
-                    {isFullscreen ? <Minimize className="w-3 h-3 text-emerald-400" /> : <Maximize className="w-3 h-3 text-cyan-400" />}
-                  </button>
-                </div>
+                {/* FULLSCREEN TOGGLE */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-1 md:px-1.5 md:py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 text-[10px] font-semibold transition-all active:scale-95"
+                  title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
+                >
+                  {isFullscreen ? <Minimize className="w-3 h-3 text-emerald-400" /> : <Maximize className="w-3 h-3 text-cyan-400" />}
+                </button>
+              </div>
 
                 {/* KELOMPOK SUASANA & AUDIO */}
                 <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
@@ -1417,14 +1498,46 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                     <HelpCircle className="w-3 h-3" />
                   </button>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
 
           {/* SISI KANAN: KELOMPOK PENGATURAN (SETTINGS, PRESENCE, CLEAN UI) - UKURAN COMPACT & RAPI */}
           <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
             {/* KELOMPOK PENGATURAN & AKUN (DI KANAN) */}
             <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
+              {/* TOMBOL PLATFORM ADMIN (Hanya Owner/Admin) */}
+              {(currentUser?.role?.toLowerCase().includes("owner") ||
+                currentUser?.role?.toLowerCase().includes("admin") ||
+                currentUser?.name?.includes("Raja")) && (
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg md:rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[10px] md:text-xs font-bold transition-all active:scale-95 shadow-sm"
+                  title="Konsol Administrasi Platform (Owner Level)"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Admin</span>
+                </button>
+              )}
+
+              {/* TOMBOL STATUS & UPGRADE PAKET LANGGANAN */}
+              <button
+                onClick={() => setIsPricingModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg md:rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] md:text-xs font-bold transition-all active:scale-95 shadow-sm"
+                title="Kelola & Upgrade Paket Langganan"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="capitalize">{activeSubscription?.planName || "Paket Free"}</span>
+              </button>
+
+              {/* TOMBOL QUICK WORKSPACE CRM & AI SALES */}
+              <button
+                onClick={() => setIsCrmModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg md:rounded-xl bg-gradient-to-r from-cyan-600/90 to-blue-600/90 hover:from-cyan-500 hover:to-blue-500 text-white border border-cyan-400/50 text-[10px] md:text-xs font-bold transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
+                title="Buka CRM & AI Sales Assistant"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-200 animate-pulse" />
+                <span>CRM &amp; AI</span>
+              </button>
+
               {/* TOMBOL PENGATURAN UTAMA (COMPACT & PROPORSIONAL) */}
               <button
                 onClick={() => setIsCustomizing(true)}
@@ -1435,35 +1548,29 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                 <span className="hidden sm:inline">Pengaturan</span>
               </button>
 
-              {/* TOGGLE CLEAN UI */}
+              {/* MASUK / KELUAR KANTOR (PRESENCE) */}
               <button
-                onClick={() => setIsCleanUIMode(!isCleanUIMode)}
-                className={`flex items-center gap-1 px-1.5 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-semibold transition-all active:scale-95 ${
-                  isCleanUIMode
-                    ? "bg-cyan-500 text-white shadow-cyan-500/30 border border-cyan-400"
-                    : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60"
+                onClick={toggleOfficePresence}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all active:scale-95 border ${
+                  isInOffice
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
+                    : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
                 }`}
-                title={isCleanUIMode ? "Tampilkan Semua UI" : "Sembunyikan UI (Fokus Bersih)"}
+                title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
               >
-                {isCleanUIMode ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-cyan-400" />}
-                <span className="hidden sm:inline">{isCleanUIMode ? "Tampilkan" : "Bersih"}</span>
+                {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
+                <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
               </button>
 
-              {/* MASUK / KELUAR KANTOR (PRESENCE) */}
-              {!isCleanUIMode && (
-                <button
-                  onClick={toggleOfficePresence}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all active:scale-95 border ${
-                    isInOffice
-                      ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30"
-                      : "bg-emerald-500/25 text-emerald-300 border-emerald-500/50 hover:bg-emerald-500/35"
-                  }`}
-                  title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
-                >
-                  {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
-                  <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
-                </button>
-              )}
+              {/* TOGGLE OFF: SEMBUNYIKAN UI */}
+              <button
+                onClick={() => setIsHUDVisible(false)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg md:rounded-xl bg-cyan-500/20 hover:bg-rose-500/25 text-cyan-300 hover:text-rose-300 border border-cyan-500/40 hover:border-rose-500/40 text-[10px] md:text-xs font-bold transition-all active:scale-95 shadow-sm"
+                title="Sembunyikan Semua Tombol (Kembali ke Mode Bersih)"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                <span>Sembunyikan</span>
+              </button>
 
               {/* LOGOUT AKUN DARI KANTOR */}
               {onLogout && (
@@ -1480,9 +1587,8 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           </div>
         </div>
 
-        {/* 24-HOUR SIMULATION HUD (TENGAH HEADER - BERSIH & RAPI PADA HP) */}
-        {!isCleanUIMode && (
-          <div className="w-full md:w-auto flex justify-center pointer-events-auto">
+        {/* 24-HOUR SIMULATION HUD (TENGAH HEADER) */}
+        <div className="w-full md:w-auto flex justify-center pointer-events-auto">
             <div className="flex items-center gap-1.5 md:gap-2 bg-slate-900/95 backdrop-blur-xl px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl md:rounded-2xl border border-cyan-500/40 shadow-xl text-xs">
               <span className="text-xs md:text-sm select-none">
                 {isTimeAccelerated ? "⚡" : "🕒"}
@@ -1550,11 +1656,11 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
               </div>
             </div>
           </div>
-        )}
-      </header>
+        </header>
+      )}
 
-      {/* BANNER STATUS MODE PENGAWAS (POSISI AMAN DI BAWAH HEADER AGAR TIDAK MENABRAK HUD) */}
-      {!isInOffice && !isCleanUIMode && (
+      {/* BANNER STATUS MODE PENGAWAS (HANYA MUNCUL JIKA isHUDVisible AKTIF) */}
+      {isHUDVisible && !isInOffice && (
         <div className="hidden sm:flex absolute top-20 right-3 z-10 pointer-events-auto bg-slate-900/90 border border-cyan-500/30 text-slate-200 px-3 py-1.5 rounded-xl backdrop-blur-md items-center gap-2 text-[11px] shadow-lg animate-in fade-in">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
           <span className="text-cyan-300 font-medium">Mode Kamera CCTV Aktif</span>
@@ -1650,14 +1756,14 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
             </div>
 
             {/* Live Peer Colleagues */}
-            {Array.from(peerAvatarsRef.current.entries()).map(([peerId, peerMesh]) => (
-              <div key={peerId} className="flex items-center gap-3 p-2 rounded-xl bg-cyan-950/30 border border-cyan-500/40">
+            {livePeersList.map((peer) => (
+              <div key={peer.id} className="flex items-center gap-3 p-2 rounded-xl bg-cyan-950/30 border border-cyan-500/40">
                 <div className="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center font-bold text-xs text-white">
-                  {peerMesh.userData.name ? peerMesh.userData.name[0] : "P"}
+                  {peer.name ? peer.name[0] : "P"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold text-cyan-200 truncate">{peerMesh.userData.name}</p>
+                    <p className="text-xs font-bold text-cyan-200 truncate">{peer.name}</p>
                     <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-1 rounded font-medium border border-cyan-500/30">
                       Live Peer
                     </span>
@@ -1669,7 +1775,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
             ))}
 
             {/* 4 Karyawan Otonom 24 Jam dengan Status & Needs */}
-            {(simulationEngineRef.current ? Array.from(simulationEngineRef.current.npcStates.values()) : npcListState).map((npc) => {
+            {npcListState.map((npc) => {
               const statusColor =
                 npc.currentStatusLabel === "Bekerja"
                   ? "bg-blue-400"
@@ -1979,7 +2085,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                 <span>💬 Jawaban {selectedNpcDialog.name}:</span>
               </div>
               <p className="text-xs text-slate-100 leading-relaxed italic">
-                "{selectedNpcDialog.reply}"
+                &ldquo;{selectedNpcDialog.reply}&rdquo;
               </p>
             </div>
 
@@ -2073,9 +2179,9 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         </div>
       )}
 
-      {/* BOTTOM FLOATING CONTROLS DOCK (DIKELOMPOKKAN SECARA VISUAL DENGAN SUB-CONTAINER ELEGAN) */}
-      <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl p-1.5 md:p-2 rounded-2xl md:rounded-3xl border border-slate-700/80 shadow-2xl max-w-[96vw] overflow-x-auto">
-        {!isCleanUIMode && (
+      {/* BOTTOM FLOATING CONTROLS DOCK (HANYA MUNCUL JIKA isHUDVisible AKTIF) */}
+      {isHUDVisible && (
+        <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl p-1.5 md:p-2 rounded-2xl md:rounded-3xl border border-slate-700/80 shadow-2xl max-w-[96vw] overflow-x-auto animate-in fade-in slide-in-from-bottom-4 duration-200">
           <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
             {/* Mic Toggle */}
             <button
@@ -2116,72 +2222,61 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
               <Monitor className="w-4 h-4 md:w-4.5 md:h-4.5" />
             </button>
           </div>
-        )}
 
-        {/* SUB-GRUP B: 5 EMOTE INTERAKTIF */}
-        <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
-          {/* Emote 1: Wave */}
-          <button
-            onClick={() => triggerEmote("wave")}
-            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
-            title="Lambaikan Tangan (Wave)"
-          >
-            <span>👋</span>
-            <span className="hidden lg:inline text-[10px] font-medium">Halo</span>
-          </button>
-
-          {/* Emote 2: Cheer */}
-          <button
-            onClick={() => triggerEmote("cheer")}
-            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
-            title="Tepuk Tangan (Cheer)"
-          >
-            <span>🎉</span>
-            <span className="hidden lg:inline text-[10px] font-medium">Tepuk</span>
-          </button>
-
-          {/* Emote 3: Dance Disco */}
-          <button
-            onClick={() => triggerEmote("dance")}
-            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
-            title="Joget Disco (Dance)"
-          >
-            <span>💃</span>
-            <span className="hidden lg:inline text-[10px] font-medium">Joget</span>
-          </button>
-
-          {/* Emote 4: Spin 360 */}
-          <button
-            onClick={() => triggerEmote("spin")}
-            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
-            title="Putar 360 (Spin)"
-          >
-            <span>🌀</span>
-            <span className="hidden lg:inline text-[10px] font-medium">Spin</span>
-          </button>
-
-          {/* Emote 5: Coffee Break */}
-          <button
-            onClick={() => triggerEmote("coffee")}
-            className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95 flex items-center gap-1"
-            title="Istirahat Kopi di Pantry"
-          >
-            <Coffee className="w-4 h-4" />
-            <span className="hidden lg:inline text-[10px] font-medium">Kopi</span>
-          </button>
-        </div>
-
-        {!isCleanUIMode && (
+          {/* SUB-GRUP B: 5 EMOTE INTERAKTIF */}
           <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
-            {/* Customize Avatar Button */}
+            {/* Emote 1: Wave */}
             <button
-              onClick={() => setIsCustomizing(true)}
-              className="p-2 md:p-2.5 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
-              title="Ganti Baju & Pengaturan Profil"
+              onClick={() => triggerEmote("wave")}
+              className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+              title="Lambaikan Tangan (Wave)"
             >
-              <Settings className="w-4 h-4 md:w-4.5 md:h-4.5" />
+              <span>👋</span>
+              <span className="hidden lg:inline text-[10px] font-medium">Halo</span>
             </button>
 
+            {/* Emote 2: Cheer */}
+            <button
+              onClick={() => triggerEmote("cheer")}
+              className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+              title="Tepuk Tangan (Cheer)"
+            >
+              <span>🎉</span>
+              <span className="hidden lg:inline text-[10px] font-medium">Tepuk</span>
+            </button>
+
+            {/* Emote 3: Dance Disco */}
+            <button
+              onClick={() => triggerEmote("dance")}
+              className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+              title="Joget Disco (Dance)"
+            >
+              <span>💃</span>
+              <span className="hidden lg:inline text-[10px] font-medium">Joget</span>
+            </button>
+
+            {/* Emote 4: Spin 360 */}
+            <button
+              onClick={() => triggerEmote("spin")}
+              className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 transition-all shadow-md active:scale-95 text-xs md:text-sm flex items-center gap-1"
+              title="Putar 360 (Spin)"
+            >
+              <span>🌀</span>
+              <span className="hidden lg:inline text-[10px] font-medium">Spin</span>
+            </button>
+
+            {/* Emote 5: Coffee Break */}
+            <button
+              onClick={() => triggerEmote("coffee")}
+              className="p-1.5 md:px-2.5 md:py-2 rounded-lg md:rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95 flex items-center gap-1"
+              title="Istirahat Kopi di Pantry"
+            >
+              <Coffee className="w-4 h-4" />
+              <span className="hidden lg:inline text-[10px] font-medium">Kopi</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl md:rounded-2xl border border-slate-700/50">
             {/* Chat Toggle */}
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}
@@ -2196,11 +2291,11 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
               <span className="hidden sm:inline text-[11px] font-semibold">Chat</span>
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* CHAT DRAWER (Diletakkan di Kanan Bawah atau Kiri secara rapi, tanpa menutupi dock tengah) */}
-      {!isCleanUIMode && isChatOpen && (
+      {/* CHAT DRAWER (HANYA MUNCUL JIKA isHUDVisible DAN isChatOpen AKTIF) */}
+      {isHUDVisible && isChatOpen && (
         <div className="absolute bottom-16 md:bottom-20 left-2 right-2 sm:left-auto sm:right-4 z-40 sm:w-80 md:w-88 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl md:rounded-3xl p-3 md:p-3.5 shadow-2xl flex flex-col h-56 md:h-72 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5 text-cyan-400">
@@ -2272,7 +2367,12 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                 const centerY = rect.top + rect.height / 2;
                 const dx = (touch.clientX - centerX) / (rect.width / 2);
                 const dy = (touch.clientY - centerY) / (rect.height / 2);
-                joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
+                const x = Math.max(-1, Math.min(1, dx));
+                const z = Math.max(-1, Math.min(1, dy));
+                joystickVector.current = { x, z };
+                if (joystickThumbRef.current) {
+                  joystickThumbRef.current.style.transform = `translate(${x * 24}px, ${z * 24}px)`;
+                }
               }}
               onTouchMove={(e) => {
                 const touch = e.touches[0];
@@ -2281,18 +2381,24 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
                 const centerY = rect.top + rect.height / 2;
                 const dx = (touch.clientX - centerX) / (rect.width / 2);
                 const dy = (touch.clientY - centerY) / (rect.height / 2);
-                joystickVector.current = { x: Math.max(-1, Math.min(1, dx)), z: Math.max(-1, Math.min(1, dy)) };
+                const x = Math.max(-1, Math.min(1, dx));
+                const z = Math.max(-1, Math.min(1, dy));
+                joystickVector.current = { x, z };
+                if (joystickThumbRef.current) {
+                  joystickThumbRef.current.style.transform = `translate(${x * 24}px, ${z * 24}px)`;
+                }
               }}
               onTouchEnd={() => {
                 joystickVector.current = { x: 0, z: 0 };
+                if (joystickThumbRef.current) {
+                  joystickThumbRef.current.style.transform = "translate(0px, 0px)";
+                }
               }}
             >
               {/* Inner Joystick Thumb */}
               <div
+                ref={joystickThumbRef}
                 className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 border border-white/40 shadow-xl flex items-center justify-center text-white font-black text-xs transition-transform pointer-events-none"
-                style={{
-                  transform: `translate(${joystickVector.current.x * 24}px, ${joystickVector.current.z * 24}px)`,
-                }}
               >
                 🕹️
               </div>
@@ -2339,8 +2445,8 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         </>
       )}
 
-      {/* QUICK CAMERA VIEW ANGLE CONTROLS FOR MONITORING MODE (Saat avatar disembunyikan) */}
-      {!isInOffice && (
+      {/* QUICK CAMERA VIEW ANGLE CONTROLS FOR MONITORING MODE */}
+      {isHUDVisible && !isInOffice && (
         <div className="md:hidden absolute bottom-16 right-4 z-20 flex flex-col items-end gap-1.5 select-none touch-none">
           <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-cyan-500/40 shadow-2xl">
             <button
@@ -2379,18 +2485,47 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         </div>
       )}
 
-      {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}
-      <div className="hidden lg:flex absolute bottom-6 right-6 z-10 pointer-events-none items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800 text-[11px] text-slate-400">
-        <span>Gunakan tombol</span>
-        <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-cyan-300 font-mono font-bold">
-          WASD
-        </span>
-        <span>atau</span>
-        <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-cyan-300 font-mono font-bold">
-          Panah
-        </span>
-        <span>untuk berjalan • Geser layar untuk putar kamera 360°</span>
-      </div>
+      {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT - HANYA MUNCUL JIKA isHUDVisible AKTIF) */}
+      {isHUDVisible && (
+        <div className="hidden lg:flex absolute bottom-6 right-6 z-10 pointer-events-none items-center gap-2 bg-slate-900/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800 text-[11px] text-slate-300 shadow-xl animate-in fade-in duration-200">
+          <span className="font-semibold text-slate-400">Kontrol:</span>
+          <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-cyan-300 font-mono font-bold">
+            WASD
+          </span>
+          <span className="text-slate-400">Jalan</span>
+          <span className="text-slate-600">•</span>
+          <span className="text-cyan-300 font-medium">Klik Kiri:</span>
+          <span>Rotasi 360°</span>
+          <span className="text-slate-600">•</span>
+          <span className="text-emerald-400 font-medium">Klik Kanan:</span>
+          <span>Geser Kamera</span>
+          <span className="text-slate-600">•</span>
+          <span className="text-amber-300 font-medium">Scroll:</span>
+          <span>Zoom</span>
+        </div>
+      )}
+
+      {/* MODAL WORKSPACE CRM & AI SALES ASSISTANT (PHASE 2 MVP) */}
+      <CrmWorkspaceModal
+        isOpen={isCrmModalOpen}
+        onClose={() => setIsCrmModalOpen(false)}
+        onOpenPricing={() => setIsPricingModalOpen(true)}
+        currentUser={currentUser}
+      />
+
+      {/* MODAL PILIH PAKET LANGGANAN & MONETISASI (PHASE 3) */}
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        onSubscriptionUpdated={(newSub) => setActiveSubscription(newSub)}
+      />
+
+      {/* MODAL PLATFORM ADMIN CONSOLE (PHASE 4) */}
+      <AdminDashboardModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        currentUser={currentUser}
+      />
     </div>
   );
 }
