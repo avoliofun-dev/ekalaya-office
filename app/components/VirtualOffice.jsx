@@ -24,6 +24,11 @@ import {
   Monitor,
   Radio,
   Wifi,
+  Sun,
+  Moon,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -38,6 +43,11 @@ export default function VirtualOffice() {
   const [currentZone, setCurrentZone] = useState("Lobi Kantor");
   const [peersNearby, setPeersNearby] = useState([]);
   const [connectedPeersCount, setConnectedPeersCount] = useState(0);
+  // Day/Night and Camera Zoom state
+  const [isDayMode, setIsDayMode] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1); // 1 = standard, 1.5 = wide / jauh, 0.7 = close
+  const ambientLightRef = useRef(null);
+  const dirLightRef = useRef(null);
 
   // Client-side initialization of user id and saved name
   useEffect(() => {
@@ -196,16 +206,17 @@ export default function VirtualOffice() {
 
     // SCENE
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x090d16);
-    scene.fog = new THREE.FogExp2(0x090d16, 0.035);
+    const bgColor = isDayMode ? 0xcbe4f9 : 0x090d16;
+    scene.background = new THREE.Color(bgColor);
+    scene.fog = new THREE.FogExp2(bgColor, isDayMode ? 0.015 : 0.035);
     sceneRef.current = scene;
 
     // CAMERA
     const camera = new THREE.PerspectiveCamera(
-      45,
+      50, // Slightly wider default FOV
       container.clientWidth / container.clientHeight,
       0.1,
-      100
+      120
     );
     camera.position.set(0, 10, 14);
     cameraRef.current = camera;
@@ -220,24 +231,31 @@ export default function VirtualOffice() {
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // LIGHTING
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    // LIGHTING (Day vs Night)
+    const ambientIntensity = isDayMode ? 2.2 : 1.1;
+    const ambientColor = isDayMode ? 0xffffff : 0x93c5fd;
+    const ambientLight = new THREE.AmbientLight(ambientColor, ambientIntensity);
     scene.add(ambientLight);
+    ambientLightRef.current = ambientLight;
 
-    const dirLight = new THREE.DirectionalLight(0xffeedd, 2.0);
-    dirLight.position.set(10, 20, 10);
+    const sunIntensity = isDayMode ? 3.0 : 1.5;
+    const sunColor = isDayMode ? 0xfff7ed : 0x60a5fa;
+    const dirLight = new THREE.DirectionalLight(sunColor, sunIntensity);
+    dirLight.position.set(12, 25, 12);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 40;
-    dirLight.shadow.camera.left = -15;
-    dirLight.shadow.camera.right = 15;
-    dirLight.shadow.camera.top = 15;
-    dirLight.shadow.camera.bottom = -15;
+    dirLight.shadow.camera.far = 45;
+    dirLight.shadow.camera.left = -18;
+    dirLight.shadow.camera.right = 18;
+    dirLight.shadow.camera.top = 18;
+    dirLight.shadow.camera.bottom = -18;
     scene.add(dirLight);
+    dirLightRef.current = dirLight;
 
-    const pointLight = new THREE.PointLight(0x38bdf8, 2.0, 15);
+    const warmPointColor = isDayMode ? 0xfef08a : 0x38bdf8;
+    const pointLight = new THREE.PointLight(warmPointColor, isDayMode ? 1.0 : 2.0, 18);
     pointLight.position.set(0, 4, 0);
     scene.add(pointLight);
 
@@ -436,15 +454,18 @@ export default function VirtualOffice() {
           }
         }
 
-        // Camera follow smoothly behind player
+        // Camera follow smoothly behind player with dynamic Zoom Level
+        const baseCamY = 6.8 * zoomLevel;
+        const baseCamZ = 8.8 * zoomLevel;
+
         const targetCamX = player.position.x;
-        const targetCamY = player.position.y + 6.5;
-        const targetCamZ = player.position.z + 8.5;
+        const targetCamY = player.position.y + baseCamY;
+        const targetCamZ = player.position.z + baseCamZ;
 
         camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCamX, 0.08);
         camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.08);
         camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCamZ, 0.08);
-        camera.lookAt(player.position.x, player.position.y + 1.2, player.position.z);
+        camera.lookAt(player.position.x, player.position.y + 1.0, player.position.z);
 
         // Send network state update (throttled 20Hz / 50ms)
         if (time - lastNetworkSync > 0.05 && peerNetworkRef.current) {
@@ -562,7 +583,7 @@ export default function VirtualOffice() {
       }
       renderer.dispose();
     };
-  }, [avatarColor, playerName, playerStatus, userId]);
+  }, [avatarColor, playerName, playerStatus, userId, isDayMode, zoomLevel]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
@@ -590,11 +611,44 @@ export default function VirtualOffice() {
           </div>
         </div>
 
-        {/* TOP RIGHT: WORKSPACE INFO & INVITE BUTTON */}
-        <div className="flex items-center gap-2.5 pointer-events-auto">
+        {/* TOP RIGHT: CONTROLS & WORKSPACE INFO */}
+        <div className="flex items-center gap-1.5 md:gap-2.5 pointer-events-auto">
+          {/* DAY / NIGHT MODE TOGGLE */}
+          <button
+            onClick={() => setIsDayMode(!isDayMode)}
+            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95 ${
+              isDayMode
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+                : "bg-slate-900/80 text-slate-200 border border-slate-700/60 hover:bg-slate-800"
+            }`}
+            title={isDayMode ? "Ubah ke Mode Malam" : "Ubah ke Mode Siang"}
+          >
+            {isDayMode ? <Sun className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '12s' }} /> : <Moon className="w-4 h-4 text-cyan-300" />}
+            <span className="hidden sm:inline">{isDayMode ? "Siang" : "Malam"}</span>
+          </button>
+
+          {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
+          <button
+            onClick={() => {
+              if (zoomLevel === 1) setZoomLevel(1.5); // Wide view
+              else if (zoomLevel === 1.5) setZoomLevel(0.7); // Close view
+              else setZoomLevel(1); // Standard view
+            }}
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+            title="Ubah Jarak Pandang (Lebar / Normal / Dekat)"
+          >
+            <Maximize2 className="w-4 h-4 text-cyan-400" />
+            <span className="hidden sm:inline">
+              {zoomLevel === 1.5 ? "Pandangan: Luas" : zoomLevel === 0.7 ? "Pandangan: Dekat" : "Pandangan: Normal"}
+            </span>
+            <span className="sm:hidden text-[10px] text-cyan-300 font-mono">
+              {zoomLevel === 1.5 ? "Wide" : zoomLevel === 0.7 ? "Close" : "1x"}
+            </span>
+          </button>
+
           <button
             onClick={handleCopyInvite}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+            className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
             title="Salin link undangan untuk rekan tim"
           >
             {inviteCopied ? (
@@ -605,17 +659,18 @@ export default function VirtualOffice() {
             ) : (
               <>
                 <Share2 className="w-4 h-4 text-cyan-400" />
-                <span>Undang Rekan</span>
+                <span>Undang</span>
               </>
             )}
           </button>
 
           <button
             onClick={() => setIsMemberListOpen(!isMemberListOpen)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-lg active:scale-95"
           >
             <Users className="w-4 h-4 text-cyan-400" />
-            <span>Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
+            <span className="hidden sm:inline">Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
+            <span className="sm:hidden text-xs">{INITIAL_BOTS.length + 1 + connectedPeersCount}</span>
           </button>
 
           <button
@@ -875,53 +930,53 @@ export default function VirtualOffice() {
         </div>
       )}
 
-      {/* BOTTOM FLOATING CONTROLS DOCK */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur-xl px-5 py-3 rounded-3xl border border-slate-700/80 shadow-2xl">
+      {/* BOTTOM FLOATING CONTROLS DOCK (Mobile Responsive) */}
+      <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 md:gap-2 bg-slate-900/90 backdrop-blur-xl px-3 md:px-5 py-2 md:py-3 rounded-2xl md:rounded-3xl border border-slate-700/80 shadow-2xl max-w-[95vw] overflow-x-auto">
         {/* Mic Toggle */}
         <button
           onClick={() => setIsMuted(!isMuted)}
-          className={`p-3 rounded-2xl transition-all shadow-md active:scale-95 ${
+          className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
             isMuted
               ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
               : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
           }`}
           title={isMuted ? "Nyalakan Mikrofon" : "Matikan Mikrofon (Muted)"}
         >
-          {isMuted ? <MicOff className="w-5 h-5 text-rose-400" /> : <Mic className="w-5 h-5" />}
+          {isMuted ? <MicOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Mic className="w-4 h-4 md:w-5 md:h-5" />}
         </button>
 
         {/* Video Toggle */}
         <button
           onClick={() => setIsVideoOn(!isVideoOn)}
-          className={`p-3 rounded-2xl transition-all shadow-md active:scale-95 ${
+          className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
             !isVideoOn
               ? "bg-slate-800 hover:bg-slate-700 text-slate-400"
               : "bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/25"
           }`}
           title={isVideoOn ? "Matikan Kamera" : "Nyalakan Kamera"}
         >
-          {!isVideoOn ? <VideoOff className="w-5 h-5 text-rose-400" /> : <Video className="w-5 h-5" />}
+          {!isVideoOn ? <VideoOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400" /> : <Video className="w-4 h-4 md:w-5 md:h-5" />}
         </button>
 
         {/* Screen Share Toggle */}
         <button
           onClick={() => setActiveScreenShare(!activeScreenShare)}
-          className={`p-3 rounded-2xl transition-all shadow-md active:scale-95 ${
+          className={`hidden sm:flex p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
             activeScreenShare
               ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/30"
               : "bg-slate-800 hover:bg-slate-700 text-slate-300"
           }`}
           title="Berbagi Layar (Screen Share)"
         >
-          <Monitor className="w-5 h-5" />
+          <Monitor className="w-4 h-4 md:w-5 md:h-5" />
         </button>
 
-        <div className="w-[1px] h-6 bg-slate-700 mx-1" />
+        <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
 
         {/* Emote: Wave */}
         <button
           onClick={() => triggerEmote("wave")}
-          className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 transition-all shadow-md active:scale-95"
+          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 transition-all shadow-md active:scale-95 text-sm md:text-base"
           title="Lambaikan Tangan (Wave)"
         >
           👋
@@ -930,7 +985,7 @@ export default function VirtualOffice() {
         {/* Emote: Cheer */}
         <button
           onClick={() => triggerEmote("cheer")}
-          className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-pink-300 hover:text-pink-200 transition-all shadow-md active:scale-95"
+          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-pink-300 transition-all shadow-md active:scale-95 text-sm md:text-base"
           title="Tepuk Tangan (Cheer)"
         >
           🎉
@@ -939,46 +994,51 @@ export default function VirtualOffice() {
         {/* Emote: Coffee Break */}
         <button
           onClick={() => triggerEmote("coffee")}
-          className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 transition-all shadow-md active:scale-95"
+          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 transition-all shadow-md active:scale-95"
           title="Istirahat Kopi di Pantry"
         >
-          <Coffee className="w-5 h-5" />
+          <Coffee className="w-4 h-4 md:w-5 md:h-5" />
         </button>
 
-        <div className="w-[1px] h-6 bg-slate-700 mx-1" />
+        <div className="w-[1px] h-5 bg-slate-700 mx-0.5" />
 
         {/* Customize Avatar Button */}
         <button
           onClick={() => setIsCustomizing(true)}
-          className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
+          className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all shadow-md active:scale-95"
           title="Ganti Baju & Pengaturan Profil"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4 md:w-5 md:h-5" />
         </button>
 
         {/* Chat Toggle */}
         <button
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`p-3 rounded-2xl transition-all shadow-md active:scale-95 ${
+          className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shadow-md active:scale-95 ${
             isChatOpen
               ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25"
               : "bg-slate-800 hover:bg-slate-700 text-slate-300"
           }`}
           title="Buka/Tutup Chat Kantor"
         >
-          <MessageSquare className="w-5 h-5" />
+          <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
         </button>
       </div>
 
-      {/* CHAT DRAWER (BOTTOM LEFT) */}
+      {/* CHAT DRAWER (Mobile Responsive overlay) */}
       {isChatOpen && (
-        <div className="absolute bottom-24 left-4 z-20 w-84 md:w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-4 shadow-2xl flex flex-col h-80 transition-all animate-in fade-in slide-in-from-bottom-4">
+        <div className="absolute bottom-16 md:bottom-24 left-3 right-3 md:right-auto md:left-4 z-20 md:w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-3.5 md:p-4 shadow-2xl flex flex-col h-64 md:h-80 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5 text-cyan-400">
               <MessageSquare className="w-3.5 h-3.5" />
               Obrolan Kantor Virtual
             </span>
-            <span className="text-[10px] text-slate-500">Live Global & Spatial</span>
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="text-slate-400 hover:text-white text-[11px] px-2 py-0.5 bg-slate-800 rounded-md"
+            >
+              Tutup
+            </button>
           </div>
 
           {/* Messages list */}
