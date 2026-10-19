@@ -1,0 +1,202 @@
+{
+  "officeSettings": {
+    "exitDoor": { "x": 0, "z": 11.5, "rot": 3.14 },
+    "meetingRoomCenter": { "x": -5.0, "z": 5.0 },
+    "meetingChairs": [
+      { "id": "seat_north", "x": -5.0, "z": 3.2, "rot": 0 },
+      { "id": "seat_south", "x": -5.0, "z": 6.8, "rot": 3.14 },
+      { "id": "seat_west", "x": -6.8, "z": 5.0, "rot": 1.57 },
+      { "id": "seat_east", "x": -3.2, "z": 5.0, "rot": -1.57 }
+    ],
+    "pantry": {
+      "coffeeMachine": { "x": 4.2, "z": 2.2, "rot": 3.14 },
+      "waterDispenser": { "x": 7.8, "z": 2.2, "rot": 3.14 },
+      "sofaMain": { "x": 5.5, "z": 7.2, "rot": 0 },
+      "sofaCorner": { "x": 7.8, "z": 5.5, "rot": -1.57 }
+    }
+  },
+  "npcs": [
+    {
+      "id": "npc-rina",
+      "name": "Rina",
+      "title": "Desainer Grafis",
+      "role": "Member",
+      "avatarColor": "#ec4899",
+      "hatColor": "#f43f5e",
+      "personality": "ramah, ekspresif, suka ngobrol dan santai",
+      "desk": { "x": 5.5, "z": -6.0, "rot": 3.14 },
+      "homePos": { "x": 0, "z": 14.0 },
+      "meetingSeatId": "seat_east",
+      "schedule": [
+        { "time": "08:30", "state": "arrive", "target": "desk", "status": "Datang ke Kantor" },
+        { "time": "09:00", "state": "work", "target": "desk", "status": "Bekerja (Desain UI & Visual)" },
+        { "time": "12:00", "state": "eat", "target": "pantry_sofa", "status": "Makan Siang di Pantry" },
+        { "time": "13:00", "state": "work", "target": "desk", "status": "Bekerja (Ilustrasi & Aset)" },
+        { "time": "15:30", "state": "coffee", "target": "pantry_coffee", "status": "Istirahat Minum Kopi" },
+        { "time": "16:00", "state": "meeting", "target": "meeting", "status": "Meeting Tim Kreatif" },
+        { "time": "17:30", "state": "leave", "target": "exit", "status": "Pulang ke Rumah" }
+      ],
+      "dialogues": {
+        "greeting": [
+          "Pagi semuanya! Semangat ya hari ini! 🎨",
+          "Hai! Suasana kantor adem banget hari ini.",
+          "Halo rek! Ada ide palet warna baru nih."
+        ],
+        "pantry": [
+          "Kopinya enak banget, rehat bentar bikin mood balik fresh ☕",
+          "Ada yang mau bareng ngemil donat di sofa?",
+          "Desain ilustrasi tadi warnanya udah cakep belum ya?"
+        ],
+        "meeting": [
+          "Menurutku tipografi dan visual layout ini lebih ramah pengguna.",
+          "Aku setuju, sisi visualnya bakal aku poles lebih playful lagi!",
+          "Feedback user kemarin kita masukin di revisi sprint ya."
+        ],
+        "chat": [
+          "Eh seru banget obrolan tadi, nanti kita lanjut pas santai!",
+          "Kamu udah coba menu kopi baru di dispenser pantry?",
+          "Kerja bareng tim kreatif gini emang paling asyik!"
+        ]
+      }
+    },
+    {
+      "id": "npc-dimas",
+      "name": "Dimas",
+      "title": "Programmer",
+      "role": "Member",
+      "avatarColor": "#3b82f6",
+      "hatColor": "#1d4ed8",
+      "personality": "fokus, pendiam, tekun, sering lupa makan",
+      "desk": { "x": -4.5, "z": -4.0, "rot": 0 },
+      "homePos": { "x": -2, "z": 14.0 },
+      "meetingSeatId": "seat_west",
+      "schedule": [
+        { "time": "09:00", "state": "arrive", "target": "desk", "status": "Datang ke Kantor" },
+        { "time": "09:15", "state": "work", "target": "desk", "status": "Bekerja (Deep Coding & Logic)" },
+        { "time": "13:00", "state": "eat", "target": "pantry_sofa", "status": "Makan Siang (Telat)" },
+        { "time": "13:45", "state": "work", "target": "desk", "status": "Bekerja (Debugging Server)" },
+        { "time": "16:00", "state": "meeting", "target": "meeting", "status": "Meeting Teknis" },
+        { "time": "17:00", "state": "coffee", "target": "pantry_coffee", "status": "Ngopi Sore Rehat" },
+        { "time": "17:30", "state": "work", "target": "desk", "status": "Lembur Coding" },
+        { "time": "19:00", "state": "leave", "target": "exit", "status": "Pulang ke Rumah" }
+      ],
+      "dialogues": {
+        "greeting": [
+          "Pagi. Hari ini lanjut refactor backend architecture.",
+          "Halo. Lagi cek performa latency WebSocket.",
+          "Pagi, push commit subuh tadi sudah aman di main branch."
+        ],
+        "pantry": [
+          "Hampir lupa makan siang gara-gara ngejar bug query tadi.",
+          "Butuh kafein ekstra biar compiling sore lancar.",
+          "Kopi pahit tanpa gula, pas buat mikir logic susah."
+        ],
+        "meeting": [
+          "Secara arsitektur, microservice ini kuat nahan lonjakan traffic.",
+          "Endpoint API sudah optimal dengan latency di bawah 20ms.",
+          "Aman, unit test 100% lulus sebelum deploy rilis."
+        ],
+        "chat": [
+          "Bentar ya, lagi tracing memori leak di worker thread.",
+          "Sip, logic-nya udah klop sama spek kalian.",
+          "Keren, integrasi 3D Three.js-nya makin ringan sekarang."
+        ]
+      }
+    },
+    {
+      "id": "npc-sari",
+      "name": "Sari",
+      "title": "Admin & Keuangan",
+      "role": "Admin",
+      "avatarColor": "#8b5cf6",
+      "hatColor": "#7c3aed",
+      "personality": "teliti, disiplin, tepat waktu, rapi",
+      "desk": { "x": 4.5, "z": -4.0, "rot": 3.14 },
+      "homePos": { "x": 2, "z": 14.0 },
+      "meetingSeatId": "seat_north",
+      "schedule": [
+        { "time": "08:00", "state": "arrive", "target": "desk", "status": "Datang Pagi Tepat Waktu" },
+        { "time": "08:30", "state": "work", "target": "desk", "status": "Bekerja (Audit & Keuangan)" },
+        { "time": "10:00", "state": "coffee", "target": "pantry_water", "status": "Ambil Air & Rehat Pagi" },
+        { "time": "10:20", "state": "work", "target": "desk", "status": "Bekerja (Rekap Laporan)" },
+        { "time": "12:00", "state": "eat", "target": "pantry_sofa", "status": "Makan Siang Disiplin" },
+        { "time": "12:45", "state": "relax", "target": "pantry_sofa", "status": "Istirahat Tenang" },
+        { "time": "13:00", "state": "work", "target": "desk", "status": "Bekerja (Payroll & Invoice)" },
+        { "time": "15:00", "state": "coffee", "target": "pantry_coffee", "status": "Teh & Kopi Sore" },
+        { "time": "15:20", "state": "work", "target": "desk", "status": "Bekerja (Finalisasi Dokumen)" },
+        { "time": "16:00", "state": "meeting", "target": "meeting", "status": "Meeting Evaluasi Biaya" },
+        { "time": "16:45", "state": "work", "target": "desk", "status": "Beres-beres Meja Kerja" },
+        { "time": "17:00", "state": "leave", "target": "exit", "status": "Pulang Tepat Waktu" }
+      ],
+      "dialogues": {
+        "greeting": [
+          "Selamat pagi! Disiplin adalah kunci hari yang produktif.",
+          "Pagi semua! Jangan lupa kuitansi operasional diserahkan ya.",
+          "Pagi! Agenda kantor hari ini sudah terjadwal rapi."
+        ],
+        "pantry": [
+          "Jadwal air minum teratur penting biar konsentrasi terjaga.",
+          "Tepat waktu makan siang bikin kerja sore lebih fokus.",
+          "Pantry bersih dan rapi bikin suasana kerja makin nyaman."
+        ],
+        "meeting": [
+          "Semua alokasi anggaran proyek ini tercatat akurat dan transparan.",
+          "Laporan keuangan kuartal ini menunjukkan efisiensi yang baik.",
+          "Pastikan semua jadwal pengadaan disetujui pimpinan tepat waktu."
+        ],
+        "chat": [
+          "Semua dokumen dan arsip sudah tertata rapi di folder.",
+          "Kalau butuh reimburse, form-nya sudah aku siapkan ya.",
+          "Senang melihat tim kita bekerja dengan teratur dan tertib."
+        ]
+      }
+    },
+    {
+      "id": "npc-budi",
+      "name": "Budi",
+      "title": "Customer Support",
+      "role": "Member",
+      "avatarColor": "#10b981",
+      "hatColor": "#059669",
+      "personality": "sabar, suka bercanda, komunikatif, aktif",
+      "desk": { "x": -5.5, "z": -6.0, "rot": 0 },
+      "homePos": { "x": 4, "z": 14.0 },
+      "meetingSeatId": "seat_south",
+      "schedule": [
+        { "time": "08:30", "state": "arrive", "target": "desk", "status": "Datang ke Kantor" },
+        { "time": "08:45", "state": "work", "target": "desk", "status": "Bekerja (Balas Tiket Klien)" },
+        { "time": "10:30", "state": "meeting", "target": "meeting", "status": "Briefing Kasus Klien" },
+        { "time": "11:15", "state": "work", "target": "desk", "status": "Bekerja (Follow Up User)" },
+        { "time": "12:30", "state": "eat", "target": "pantry_sofa", "status": "Makan Siang & Bercanda" },
+        { "time": "13:30", "state": "work", "target": "desk", "status": "Bekerja (Live Chat Support)" },
+        { "time": "15:00", "state": "coffee", "target": "pantry_coffee", "status": "Kopi Santai Sambil Canda" },
+        { "time": "15:30", "state": "work", "target": "desk", "status": "Bekerja (Laporan CS)" },
+        { "time": "16:00", "state": "meeting", "target": "meeting", "status": "Meeting Suara Pelanggan" },
+        { "time": "17:00", "state": "work", "target": "desk", "status": "Closing Harian CS" },
+        { "time": "17:30", "state": "leave", "target": "exit", "status": "Pulang ke Rumah" }
+      ],
+      "dialogues": {
+        "greeting": [
+          "Pagi kawan-kawan! Siap melayani pelanggan dengan senyuman! 😊",
+          "Halo semua! Hari cerah, customer pasti pada bahagia nih haha.",
+          "Pagi! Jangan lupa senyum, senyum itu gratis tapi bikin adem!"
+        ],
+        "pantry": [
+          "Kopi mantap, candaan hangat, kerjaan berat jadi ringan! 😄",
+          "Ada yang mau dengar tebak-tebakan receh sambil ngopi?",
+          "Makan siang nikmat bareng rekan kerja emang obat penat paling ampuh."
+        ],
+        "meeting": [
+          "Customer puas banget sama respon cepat fitur baru kita!",
+          "Ada masukan menarik dari pengguna loyal, bisa kita diskusikan.",
+          "Tingkat kepuasan bintang 5 bertahan di angka 98% bulan ini!"
+        ],
+        "chat": [
+          "Santai aja mas, selama bisa senyum, masalah kelar satu-satu haha.",
+          "Pelanggan barusan lucu banget curhatnya, bikin ketawa sendiri.",
+          "Kompak terus ya tim, kalian luar biasa!"
+        ]
+      }
+    }
+  ]
+}

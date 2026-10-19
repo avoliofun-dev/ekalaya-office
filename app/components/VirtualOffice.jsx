@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { buildOfficeScene, createBlockyAvatar } from "@/lib/officeBuilder";
-import { INITIAL_BOTS, OFFICE_ZONES, AVATAR_COLORS, COMPANY_PROFILE } from "@/lib/mockData";
-import { WORK_CYCLE_SCHEDULE } from "@/lib/workCycle";
+import { OFFICE_ZONES, AVATAR_COLORS, COMPANY_PROFILE } from "@/lib/mockData";
+import { OfficeSimulationEngine, minutesToTimeString } from "@/lib/simulationEngine";
 import { PeerNetwork } from "@/lib/peerNetwork";
 import {
   MessageSquare,
@@ -41,6 +41,7 @@ import {
   Clock,
   Play,
   Pause,
+  FastForward,
   SkipForward,
 } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -54,16 +55,16 @@ export default function VirtualOffice() {
   const [playerStatus, setPlayerStatus] = useState("Monitoring"); // Mode Pengawas Kantor
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].hex);
   const [currentZone, setCurrentZone] = useState("Ruang Pengawas Kantor");
-  const [isInOffice, setIsInOffice] = useState(false); // Default: Avatar disembunyikan/dikeluarkan (Mode Kamera Pengawas)
+  const [isInOffice, setIsInOffice] = useState(false); // Default: Avatar disembunyikan (Mode Pengawas 24 Jam)
   const [peersNearby, setPeersNearby] = useState([]);
   const [connectedPeersCount, setConnectedPeersCount] = useState(0);
 
-  // Work Cycle Schedule State (Siklus Kegiatan Kerja Pegawai)
-  const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
-  const [cycleTimer, setCycleTimer] = useState(45); // detik sisa dalam fase
-  const [isCycleAutoPlaying, setIsCycleAutoPlaying] = useState(true);
-  const [workCycleData, setWorkCycleData] = useState(WORK_CYCLE_SCHEDULE);
-  const currentPhase = workCycleData[currentPhaseIndex];
+  // 24-HOUR SIMULATION ENGINE STATE
+  const simulationEngineRef = useRef(null);
+  const [simulatedTimeStr, setSimulatedTimeStr] = useState("08:30");
+  const [isTimeAccelerated, setIsTimeAccelerated] = useState(false); // false = Realtime, true = 1 hari = 10 menit
+  const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
+  const [npcListState, setNpcListState] = useState([]);
 
   // Day/Night and Camera Zoom state
   const [isDayMode, setIsDayMode] = useState(true); // Default SIANG
@@ -223,64 +224,28 @@ export default function VirtualOffice() {
     ]);
   };
 
-  // Siklus Kerja: Pergantian Fase (Auto-cycle timer & manual next phase)
-  const advanceToPhase = useCallback((targetIndex) => {
-    const nextIdx = (targetIndex + workCycleData.length) % workCycleData.length;
-    setCurrentPhaseIndex(nextIdx);
-    setCycleTimer(workCycleData[nextIdx].durationSeconds || 45);
-
-    const nextPhaseConfig = workCycleData[nextIdx];
-    addSystemMessage(`⏰ [Siklus Kantor] Dimulai: ${nextPhaseConfig.title}`);
-
-    // Update target posisi & tugas 4 bot di Three.js
-    if (botsRef.current) {
-      Object.entries(nextPhaseConfig.bots).forEach(([botId, botSchedule]) => {
-        const botMesh = botsRef.current.get(botId);
-        if (botMesh) {
-          botMesh.userData.targetX = botSchedule.position.x;
-          botMesh.userData.targetZ = botSchedule.position.z;
-          botMesh.userData.targetRot = botSchedule.rotation;
-          botMesh.userData.action = botSchedule.action;
-          botMesh.userData.status = botSchedule.status;
-          botMesh.userData.task = botSchedule.task;
-        }
-      });
+  // Toggle mode waktu dipercepat (1 hari = 10 menit vs Realtime 24 jam)
+  const toggleTimeSpeed = () => {
+    const nextAcc = !isTimeAccelerated;
+    setIsTimeAccelerated(nextAcc);
+    if (simulationEngineRef.current) {
+      simulationEngineRef.current.isAccelerated = nextAcc;
     }
+    addSystemMessage(
+      nextAcc
+        ? "⚡ Mode Dipercepat Aktif: 1 Hari = 10 Menit (Cocok untuk uji siklus penuh)"
+        : "🕒 Mode Waktu Nyata (Realtime 24 Jam) Aktif: Jam sinkron dengan waktu nyata"
+    );
+  };
 
-    // Bot automatic announce in chat after phase starts
-    setTimeout(() => {
-      const botsEntries = Object.entries(nextPhaseConfig.bots);
-      const chosen = botsEntries[Math.floor(Math.random() * botsEntries.length)];
-      if (chosen && chosen[1].chat) {
-        const botObj = INITIAL_BOTS.find((b) => b.id === chosen[0]);
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            sender: botObj ? botObj.name : "Pegawai",
-            text: chosen[1].chat,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            isOwner: false,
-          },
-        ]);
-      }
-    }, 1500);
-  }, [workCycleData]);
-
-  // Efek interval untuk countdown siklus kegiatan
-  useEffect(() => {
-    if (!isCycleAutoPlaying) return;
-    const interval = setInterval(() => {
-      setCycleTimer((prev) => {
-        if (prev <= 1) {
-          advanceToPhase(currentPhaseIndex + 1);
-          return 45;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isCycleAutoPlaying, currentPhaseIndex, advanceToPhase]);
+  // Skip waktu simulasi maju 1 jam (Fitur pengujian mudah)
+  const skipOneHour = () => {
+    if (simulationEngineRef.current) {
+      simulationEngineRef.current.simulatedMinutes = (simulationEngineRef.current.simulatedMinutes + 60) % 1440;
+      setSimulatedTimeStr(minutesToTimeString(simulationEngineRef.current.simulatedMinutes));
+      addSystemMessage(`⏩ Waktu dimajukan 1 jam ke pukul ${minutesToTimeString(simulationEngineRef.current.simulatedMinutes)}`);
+    }
+  };
 
   // Aksi Masuk / Keluar Kantor
   const toggleOfficePresence = () => {
@@ -332,7 +297,9 @@ export default function VirtualOffice() {
 
     // Bot automatic reply simulation if addressing bots
     setTimeout(() => {
-      const randomBot = INITIAL_BOTS[Math.floor(Math.random() * INITIAL_BOTS.length)];
+      const npcs = simulationEngineRef.current ? Array.from(simulationEngineRef.current.npcStates.values()) : [];
+      if (npcs.length === 0) return;
+      const randomBot = npcs[Math.floor(Math.random() * npcs.length)];
       const replies = [
         "Sip mantap pak!",
         "Segera saya selesaikan tugas ini 👍",
@@ -437,43 +404,41 @@ export default function VirtualOffice() {
     scene.add(player);
     playerAvatarRef.current = player;
 
-    // BUILD INITIAL BOTS
+    // INISIALISASI MESIN SIMULASI 24 JAM
+    const simEngine = new OfficeSimulationEngine({
+      isAccelerated: isTimeAccelerated,
+    });
+    simulationEngineRef.current = simEngine;
+    setSimulatedTimeStr(minutesToTimeString(simEngine.simulatedMinutes));
+
+    // BUILD 4 KARYAWAN OTONOM (Rina, Dimas, Sari, Budi)
     const botMap = new Map();
-    INITIAL_BOTS.forEach((botData) => {
-      const botMesh = createBlockyAvatar({
-        name: botData.name,
-        color: botData.color,
-        hatColor: botData.hatColor,
+    simEngine.npcStates.forEach((npc) => {
+      const npcMesh = createBlockyAvatar({
+        name: `${npc.name} (${npc.title.split(" ")[0]})`,
+        color: npc.avatarColor,
+        hatColor: npc.hatColor,
         isPlayer: false,
-        status: botData.status,
+        status: npc.currentStatusLabel,
       });
-      botMesh.position.set(botData.position.x, botData.position.y, botData.position.z);
-      botMesh.rotation.y = botData.rotation;
-      botMesh.userData.action = botData.action;
-      botMesh.userData.originalZ = botData.position.z;
-      botMesh.userData.originalX = botData.position.x;
-      botMesh.userData.role = botData.role;
-      botMesh.userData.task = botData.task;
-      scene.add(botMesh);
-      botMap.set(botData.id, botMesh);
+
+      npcMesh.position.set(npc.currentPos.x, 0, npc.currentPos.z);
+      npcMesh.rotation.y = npc.rotation;
+      npcMesh.visible = npc.isInsideOffice; // Sembunyi jika sedang di rumah/pulang
+
+      npcMesh.userData.id = npc.id;
+      npcMesh.userData.name = npc.name;
+      npcMesh.userData.title = npc.title;
+      npcMesh.userData.action = npc.action;
+      npcMesh.userData.role = npc.role;
+      npcMesh.userData.task = npc.currentStatusLabel;
+      npcMesh.userData.status = npc.currentStatusLabel;
+
+      scene.add(npcMesh);
+      botMap.set(npc.id, npcMesh);
     });
     botsRef.current = botMap;
-
-    // LANGSUNG JALANKAN SEKEJUL FASE AKTIF PADA 4 PEGAWAI SEJAK AWAL
-    const initialPhaseSchedule = WORK_CYCLE_SCHEDULE[currentPhaseIndex];
-    if (initialPhaseSchedule && initialPhaseSchedule.bots) {
-      Object.entries(initialPhaseSchedule.bots).forEach(([bId, bSched]) => {
-        const bMesh = botMap.get(bId);
-        if (bMesh) {
-          bMesh.userData.targetX = bSched.position.x;
-          bMesh.userData.targetZ = bSched.position.z;
-          bMesh.userData.targetRot = bSched.rotation;
-          bMesh.userData.action = bSched.action;
-          bMesh.userData.status = bSched.status;
-          bMesh.userData.task = bSched.task;
-        }
-      });
-    }
+    setNpcListState(Array.from(simEngine.npcStates.values()));
 
     // SETUP PEER NETWORK (Multiplayer Sync)
     const peerNetwork = new PeerNetwork(
@@ -910,85 +875,121 @@ export default function VirtualOffice() {
         }
       });
 
-      // 3. Animate Bots with Schedule Walk & Task Actions
-      botsRef.current.forEach((botMesh) => {
-        // Jika bot memiliki target posisi dari siklus kegiatan yang sedang berlangsung
-        if (botMesh.userData.targetX !== undefined && botMesh.userData.targetZ !== undefined) {
-          const dx = botMesh.userData.targetX - botMesh.position.x;
-          const dz = botMesh.userData.targetZ - botMesh.position.z;
-          const distToTarget = Math.hypot(dx, dz);
+      // 3. Update Mesin Simulasi 24 Jam & Animate 4 Karyawan Otonom
+      if (simulationEngineRef.current) {
+        const engine = simulationEngineRef.current;
+        engine.update(delta, addSystemMessage, (chat) => {
+          setChatMessages((prev) => [...prev, chat]);
+        });
 
-          if (distToTarget > 0.15) {
-            // Bot sedang berjalan menuju ruangan / meja target
-            const walkSpeed = 2.4 * delta;
-            botMesh.position.x += (dx / distToTarget) * walkSpeed;
-            botMesh.position.z += (dz / distToTarget) * walkSpeed;
+        // Sinkronisasi display jam tiap frame
+        setSimulatedTimeStr(minutesToTimeString(engine.simulatedMinutes));
 
-            // Hadap ke arah berjalan
-            const moveAngle = Math.atan2(dx, dz);
-            botMesh.rotation.y = THREE.MathUtils.lerp(botMesh.rotation.y, moveAngle, 0.2);
+        // Animate setiap NPC mesh mengikuti rute waypoints & status kegiatan
+        engine.npcStates.forEach((npc, npcId) => {
+          const npcMesh = botsRef.current.get(npcId);
+          if (!npcMesh) return;
 
-            // Ayunan kaki & tangan saat berjalan
-            botMesh.userData.stepCycle = (botMesh.userData.stepCycle || 0) + delta * 10;
-            const swing = Math.sin(botMesh.userData.stepCycle) * 0.55;
-            botMesh.userData.leftLegPivot.rotation.x = swing;
-            botMesh.userData.rightLegPivot.rotation.x = -swing;
-            botMesh.userData.leftArmPivot.rotation.x = -swing;
-            botMesh.userData.rightArmPivot.rotation.x = swing;
-            botMesh.userData.torso.position.y = 1.05 + Math.abs(Math.sin(botMesh.userData.stepCycle * 2)) * 0.08;
-            botMesh.position.y = 0;
-            return;
-          } else {
-            // Sudah sampai tujuan, samakan rotasi dan aksi target
-            if (botMesh.userData.targetRot !== undefined) {
-              botMesh.rotation.y = THREE.MathUtils.lerp(botMesh.rotation.y, botMesh.userData.targetRot, 0.1);
+          // Visibilitas (Sembunyi jika tidur di rumah/pulang)
+          npcMesh.visible = npc.isInsideOffice;
+
+          // Update teks nametag, status aktivitas, dan bubble obrolan di atas kepala
+          const activeBubble = engine.getBubbleForNpc(npcId);
+          if (npcMesh.userData.updateOverheadDisplay) {
+            npcMesh.userData.updateOverheadDisplay(
+              npc.name,
+              npc.currentStatusLabel,
+              activeBubble
+            );
+          }
+
+          // Pergerakan Pathfinding Waypoints
+          if (npc.waypoints && npc.waypoints.length > 0 && npc.waypointIndex < npc.waypoints.length) {
+            const wp = npc.waypoints[npc.waypointIndex];
+            const dx = wp.x - npc.currentPos.x;
+            const dz = wp.z - npc.currentPos.z;
+            const dist = Math.hypot(dx, dz);
+
+            if (dist > 0.15) {
+              const moveSpeed = (isTimeAccelerated ? 4.5 : 2.5) * delta;
+              npc.currentPos.x += (dx / dist) * moveSpeed;
+              npc.currentPos.z += (dz / dist) * moveSpeed;
+
+              npcMesh.position.x = npc.currentPos.x;
+              npcMesh.position.z = npc.currentPos.z;
+
+              // Rotasi hadap ke waypoint
+              const targetRot = Math.atan2(dx, dz);
+              npcMesh.rotation.y = THREE.MathUtils.lerp(npcMesh.rotation.y, targetRot, 0.2);
+
+              // Animasi langkah berjalan
+              npcMesh.userData.stepCycle = (npcMesh.userData.stepCycle || 0) + delta * 11;
+              const swing = Math.sin(npcMesh.userData.stepCycle) * 0.6;
+              npcMesh.userData.leftLegPivot.rotation.x = swing;
+              npcMesh.userData.rightLegPivot.rotation.x = -swing;
+              npcMesh.userData.leftArmPivot.rotation.x = -swing;
+              npcMesh.userData.rightArmPivot.rotation.x = swing;
+              npcMesh.userData.torso.position.y = 1.05 + Math.abs(Math.sin(npcMesh.userData.stepCycle * 2)) * 0.08;
+              npcMesh.position.y = 0;
+              return;
+            } else {
+              // Lanjut ke waypoint berikutnya
+              npc.waypointIndex++;
+              if (npc.waypointIndex >= npc.waypoints.length) {
+                npc.waypoints = [];
+                // Samakan rotasi tujuan
+                if (npc.targetPos && npc.targetPos.rot !== undefined) {
+                  npc.rotation = npc.targetPos.rot;
+                  npcMesh.rotation.y = npc.targetPos.rot;
+                }
+              }
             }
           }
-        }
 
-        // Jalankan animasi berdasarkan action (typing, sitting, waving, cheer, dance, idle)
-        const act = botMesh.userData.action || "idle";
+          // Animasi Aksi saat Berhenti di Tempat (Action States)
+          const act = npc.action || "idle";
 
-        if (act === "typing") {
-          botMesh.position.y = 0;
-          botMesh.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.leftLegPivot.rotation.x, 0, 0.2);
-          botMesh.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.rightLegPivot.rotation.x, 0, 0.2);
-          botMesh.userData.leftArmPivot.rotation.x = -1.2 + Math.sin(time * 8) * 0.1;
-          botMesh.userData.rightArmPivot.rotation.x = -1.2 + Math.cos(time * 8) * 0.1;
-          botMesh.userData.leftArmPivot.rotation.z = 0;
-          botMesh.userData.rightArmPivot.rotation.z = 0;
-        } else if (act === "sitting") {
-          botMesh.position.y = -0.3;
-          botMesh.userData.leftLegPivot.rotation.x = -Math.PI / 2;
-          botMesh.userData.rightLegPivot.rotation.x = -Math.PI / 2;
-          botMesh.userData.leftArmPivot.rotation.x = -0.5;
-          botMesh.userData.rightArmPivot.rotation.x = -0.5;
-        } else if (act === "waving") {
-          botMesh.position.y = 0;
-          botMesh.userData.leftLegPivot.rotation.x = 0;
-          botMesh.userData.rightLegPivot.rotation.x = 0;
-          botMesh.userData.rightArmPivot.rotation.x = 0;
-          botMesh.userData.rightArmPivot.rotation.z = Math.sin(time * 12) * 0.5 + 2.4;
-          botMesh.userData.leftArmPivot.rotation.z = 0;
-        } else if (act === "cheer") {
-          botMesh.position.y = 0;
-          botMesh.userData.leftArmPivot.rotation.z = -2.2 + Math.sin(time * 18) * 0.3;
-          botMesh.userData.rightArmPivot.rotation.z = 2.2 + Math.sin(time * 18) * 0.3;
-        } else if (act === "dance") {
-          botMesh.position.y = 0;
-          botMesh.rotation.y += delta * 2.5;
-          botMesh.userData.leftArmPivot.rotation.z = Math.sin(time * 10) * 1.2 - 0.8;
-          botMesh.userData.rightArmPivot.rotation.z = -Math.sin(time * 10) * 1.2 + 0.8;
-        } else {
-          // Idle santai bernapas
-          botMesh.position.y = 0;
-          botMesh.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.leftLegPivot.rotation.x, 0, 0.2);
-          botMesh.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.rightLegPivot.rotation.x, 0, 0.2);
-          botMesh.userData.leftArmPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.leftArmPivot.rotation.x, 0, 0.2);
-          botMesh.userData.rightArmPivot.rotation.x = THREE.MathUtils.lerp(botMesh.userData.rightArmPivot.rotation.x, 0, 0.2);
-          botMesh.userData.torso.position.y = 1.05 + Math.sin(time * 2) * 0.02;
-        }
-      });
+          if (act === "typing") {
+            npcMesh.position.y = 0;
+            npcMesh.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(npcMesh.userData.leftLegPivot.rotation.x, 0, 0.2);
+            npcMesh.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(npcMesh.userData.rightLegPivot.rotation.x, 0, 0.2);
+            npcMesh.userData.leftArmPivot.rotation.x = -1.25 + Math.sin(time * 8) * 0.1;
+            npcMesh.userData.rightArmPivot.rotation.x = -1.25 + Math.cos(time * 8) * 0.1;
+            npcMesh.userData.leftArmPivot.rotation.z = 0;
+            npcMesh.userData.rightArmPivot.rotation.z = 0;
+          } else if (act === "sitting") {
+            npcMesh.position.y = -0.3;
+            npcMesh.userData.leftLegPivot.rotation.x = -Math.PI / 2;
+            npcMesh.userData.rightLegPivot.rotation.x = -Math.PI / 2;
+            npcMesh.userData.leftArmPivot.rotation.x = -0.5;
+            npcMesh.userData.rightArmPivot.rotation.x = -0.5;
+          } else if (act === "waving") {
+            npcMesh.position.y = 0;
+            npcMesh.userData.leftLegPivot.rotation.x = 0;
+            npcMesh.userData.rightLegPivot.rotation.x = 0;
+            npcMesh.userData.rightArmPivot.rotation.x = 0;
+            npcMesh.userData.rightArmPivot.rotation.z = Math.sin(time * 12) * 0.5 + 2.4;
+            npcMesh.userData.leftArmPivot.rotation.z = 0;
+          } else if (act === "cheer") {
+            npcMesh.position.y = 0;
+            npcMesh.userData.leftArmPivot.rotation.z = -2.2 + Math.sin(time * 18) * 0.3;
+            npcMesh.userData.rightArmPivot.rotation.z = 2.2 + Math.sin(time * 18) * 0.3;
+          } else if (act === "dance") {
+            npcMesh.position.y = 0;
+            npcMesh.rotation.y += delta * 2.5;
+            npcMesh.userData.leftArmPivot.rotation.z = Math.sin(time * 10) * 1.2 - 0.8;
+            npcMesh.userData.rightArmPivot.rotation.z = -Math.sin(time * 10) * 1.2 + 0.8;
+          } else {
+            // Idle alami
+            npcMesh.position.y = 0;
+            npcMesh.userData.leftLegPivot.rotation.x = THREE.MathUtils.lerp(npcMesh.userData.leftLegPivot.rotation.x, 0, 0.2);
+            npcMesh.userData.rightLegPivot.rotation.x = THREE.MathUtils.lerp(npcMesh.userData.rightLegPivot.rotation.x, 0, 0.2);
+            npcMesh.userData.leftArmPivot.rotation.x = THREE.MathUtils.lerp(npcMesh.userData.leftArmPivot.rotation.x, 0, 0.2);
+            npcMesh.userData.rightArmPivot.rotation.x = THREE.MathUtils.lerp(npcMesh.userData.rightArmPivot.rotation.x, 0, 0.2);
+            npcMesh.userData.torso.position.y = 1.05 + Math.sin(time * 2) * 0.02;
+          }
+        });
+      }
 
       renderer.render(scene, camera);
     };
@@ -1044,40 +1045,48 @@ export default function VirtualOffice() {
           </div>
         ) : <div />}
 
-        {/* WORK CYCLE HUD (TENGAH HEADER - RAPI & TERPADU) */}
+        {/* 24-HOUR SIMULATION HUD (TENGAH HEADER - KONTROL REALTIME & DIPERCEPAT) */}
         {!isCleanUIMode && (
           <div className="order-3 md:order-2 mx-auto pointer-events-auto max-w-[94vw]">
-            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-cyan-500/40 shadow-xl text-xs">
-              <span className="text-sm select-none">{currentPhase.icon}</span>
+            <div className="flex items-center gap-2 bg-slate-900/95 backdrop-blur-xl px-3 py-1.5 rounded-2xl border border-cyan-500/40 shadow-xl text-xs">
+              <span className="text-base select-none">
+                {isTimeAccelerated ? "⚡" : "🕒"}
+              </span>
               <div className="text-left flex items-center gap-2">
-                <span className="font-bold text-white tracking-wide truncate max-w-[150px] sm:max-w-xs text-xs">
-                  {currentPhase.title}
+                <span className="font-bold text-white tracking-wide text-xs">
+                  {simulatedTimeStr} WIB
                 </span>
-                <span className="text-[10px] bg-cyan-950/90 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded-md font-mono flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '6s' }} />
-                  {cycleTimer}s
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-md font-mono font-bold flex items-center gap-1 border ${
+                    isTimeAccelerated
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                      : "bg-cyan-950/90 text-cyan-300 border-cyan-500/30"
+                  }`}
+                >
+                  <Clock className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: isTimeAccelerated ? "2s" : "10s" }} />
+                  {isTimeAccelerated ? "1 Hari = 10m" : "Realtime 24J"}
                 </span>
               </div>
 
-              {/* Kontrol Siklus */}
+              {/* Kontrol Kecepatan Waktu & Loncat Jam */}
               <div className="flex items-center gap-1 pl-1 border-l border-slate-700/80">
                 <button
-                  onClick={() => setIsCycleAutoPlaying(!isCycleAutoPlaying)}
-                  className={`p-1 rounded-lg border transition-all ${
-                    isCycleAutoPlaying
-                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30"
-                      : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                  onClick={toggleTimeSpeed}
+                  className={`px-2 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
+                    isTimeAccelerated
+                      ? "bg-amber-500/30 text-amber-200 border-amber-500/50 hover:bg-amber-500/40"
+                      : "bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-750"
                   }`}
-                  title={isCycleAutoPlaying ? "Jeda Siklus" : "Jalankan Siklus"}
+                  title={isTimeAccelerated ? "Ubah ke Mode Waktu Nyata (Realtime)" : "Ubah ke Mode Dipercepat (1 Hari = 10 Menit)"}
                 >
-                  {isCycleAutoPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  {isTimeAccelerated ? "⚡ Percepat Aktif" : "⚡ Percepat"}
                 </button>
                 <button
-                  onClick={() => advanceToPhase(currentPhaseIndex + 1)}
-                  className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 transition-all active:scale-95"
-                  title="Lanjut Fase Berikutnya"
+                  onClick={skipOneHour}
+                  className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-cyan-300 text-[11px] font-semibold transition-all active:scale-95"
+                  title="Majukan waktu 1 jam ke depan"
                 >
-                  <SkipForward className="w-3 h-3" />
+                  +1 Jam
                 </button>
               </div>
             </div>
@@ -1156,11 +1165,16 @@ export default function VirtualOffice() {
 
               {/* DAFTAR ANGGOTA */}
               <button
-                onClick={() => setIsMemberListOpen(!isMemberListOpen)}
+                onClick={() => {
+                  if (simulationEngineRef.current) {
+                    setNpcListState(Array.from(simulationEngineRef.current.npcStates.values()));
+                  }
+                  setIsMemberListOpen(!isMemberListOpen);
+                }}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/60 backdrop-blur-md text-xs font-semibold transition-all shadow-md active:scale-95"
               >
                 <Users className="w-3.5 h-3.5 text-cyan-400" />
-                <span>({INITIAL_BOTS.length + 1 + connectedPeersCount})</span>
+                <span>({npcListState.length + 1 + connectedPeersCount})</span>
               </button>
 
               <button
@@ -1225,7 +1239,7 @@ export default function VirtualOffice() {
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
             <h3 className="font-bold text-sm flex items-center gap-2">
               <Users className="w-4 h-4 text-cyan-400" />
-              Daftar Anggota ({INITIAL_BOTS.length + 1 + connectedPeersCount})
+              Daftar Anggota ({npcListState.length + 1 + connectedPeersCount})
             </h3>
             <button
               onClick={() => setIsMemberListOpen(false)}
@@ -1290,42 +1304,58 @@ export default function VirtualOffice() {
               </div>
             ))}
 
-            {/* Bots / 4 Pegawai dengan status dinamis & tanggal mulai aktif */}
-            {INITIAL_BOTS.map((bot) => {
-              const liveBotSchedule = currentPhase.bots[bot.id];
-              const liveStatus = liveBotSchedule?.status || bot.status;
-              const liveTask = liveBotSchedule?.task || bot.task;
+            {/* 4 Karyawan Otonom 24 Jam dengan Status & Needs */}
+            {(simulationEngineRef.current ? Array.from(simulationEngineRef.current.npcStates.values()) : npcListState).map((npc) => {
+              const statusColor =
+                npc.currentStatusLabel === "Bekerja"
+                  ? "bg-blue-400"
+                  : npc.currentStatusLabel === "Makan"
+                  ? "bg-amber-400"
+                  : npc.currentStatusLabel === "Meeting"
+                  ? "bg-purple-400"
+                  : npc.currentStatusLabel === "Istirahat" || npc.currentStatusLabel === "Ngopi"
+                  ? "bg-emerald-400"
+                  : npc.currentStatusLabel === "Tidur" || npc.currentStatusLabel === "Pulang"
+                  ? "bg-slate-500"
+                  : "bg-cyan-400";
 
               return (
-                <div key={bot.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/40 transition-colors">
+                <div key={npc.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/40 transition-colors">
                   <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-md"
-                    style={{ backgroundColor: bot.color }}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-md relative"
+                    style={{ backgroundColor: npc.avatarColor }}
                   >
-                    {bot.name[0]}
+                    {npc.name[0]}
+                    {!npc.isInsideOffice && (
+                      <span className="absolute -bottom-1 -right-1 text-[8px] bg-slate-900 border border-slate-700 px-1 rounded-full text-slate-400">
+                        Zzz
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold text-slate-200 truncate">{bot.name}</p>
+                      <p className="text-xs font-semibold text-slate-200 truncate">{npc.name}</p>
                       <span className="text-[9px] bg-slate-700 text-slate-300 px-1 rounded font-medium">
-                        {bot.role}
+                        {npc.title}
                       </span>
                     </div>
-                    <p className="text-[10px] text-cyan-300 truncate font-mono">{liveTask}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 flex items-center gap-1">
-                      <Calendar className="w-2.5 h-2.5 text-cyan-400" />
-                      Aktif: <span className="text-slate-300">{bot.joinedDate}</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-cyan-300 font-medium">
+                        {npc.currentStatusLabel}
+                      </span>
+                      <span className="text-[9px] text-slate-400">
+                        • {npc.personality}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-slate-400 mt-0.5">
+                      <span>Energi: {Math.round(npc.needs.energy)}%</span>
+                      <span>Lapar: {Math.round(npc.needs.hunger)}%</span>
+                      <span>Sosial: {Math.round(npc.needs.social)}%</span>
+                    </div>
                   </div>
                   <span
-                    className={`w-2 h-2 rounded-full ${
-                      liveStatus === "Available"
-                        ? "bg-emerald-400"
-                        : liveStatus === "Busy"
-                        ? "bg-rose-400"
-                        : "bg-amber-400"
-                    }`}
-                    title={`Status: ${liveStatus}`}
+                    className={`w-2 h-2 rounded-full ${statusColor}`}
+                    title={`Aktivitas: ${npc.currentStatusLabel}`}
                   />
                 </div>
               );

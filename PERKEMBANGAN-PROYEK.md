@@ -176,6 +176,25 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
     3. **Penyesuaian Chat Drawer**: Kotak obrolan kantor diposisikan presisi di kanan bawah sehingga tidak menghalangi dock kontrol bawah maupun kanvas tengah.
     4. **Radar Spasial Nyaman**: Kotak deteksi suara spasial kini berada di kiri atas dengan margin aman di bawah header.
 
+## 📅 Tahap 16: Sistem Karyawan Otonom 24 Jam (Autonomous 24h NPC Engine)
+* **4 Karakter Karyawan Otonom Penuh**:
+  1. **Rina (Desainer Grafis)**: Ramah & suka ngobrol. Datang 08.30, kerja 09.00-12.00, makan 12.00-13.00, kerja 13.00-15.30, ngopi 15.30, meeting 16.00, pulang 17.30.
+  2. **Dimas (Programmer)**: Fokus & pendiam. Datang 09.00, coding maraton, makan telat 13.00, ngopi sore, lembur hingga 19.00.
+  3. **Sari (Admin & Keuangan)**: Teliti & disiplin. Datang 08.00, kerja 08.30-12.00, makan 12.00-12.45, pantry 10.00 & 15.00, pulang 17.00.
+  4. **Budi (Customer Support)**: Sabar & suka bercanda. Datang 08.30, bolak-balik meja dan ruang meeting, makan 12.30, pulang 17.30.
+* **Fitur Utama yang Diimplementasikan**:
+  1. **Konfigurasi Terpisah (`lib/npcData.json`)**: Seluruh jadwal, koordinat meja/pantry/meeting/sofa, kepribadian, dan percakapan tersimpan dalam JSON terstruktur. Sangat mudah menambah karyawan baru.
+  2. **A* Grid Pathfinding 2D (`lib/pathfinding.js`)**: Navigasi akurat menghindari dinding luar, sekat kaca ruang meeting, meja kerja, dan sofa lounge tanpa menembus dinding (*no clipping*).
+  3. **Needs System & Variasi Alami**: Setiap karyawan memiliki indikator Energi, Lapar, dan Sosial, serta variasi waktu acak (jitter 0-15 menit) sehingga tidak bergerak kaku seperti robot.
+  4. **Interaksi Spasial & Chat Bubble Bahasa Indonesia**: Saat berada berdekatan di pantry/sofa, muncul balon obrolan teks di atas kepala dengan gaya bahasa santai dan log ke chat kantor.
+  5. **Overhead Billboard 3D Dynamic Sprite**: Nametag 3D, badge status kegiatan (*Bekerja, Istirahat, Meeting, Makan, Pulang, Tidur*), serta speech bubble otomatis menghadap ke kamera.
+  6. **Kontrol Waktu Fleksibel**:
+     - Mode Waktu Nyata (24 Jam Realtime): Sinkron langsung dengan jam pengguna saat ini.
+     - Mode Dipercepat (⚡ 1 Hari = 10 Menit): Untuk pengujian siklus penuh harian secara cepat.
+     - Tombol `+1 Jam`: Majukan simulasi 1 jam ke depan seketika.
+  7. **Persistensi & Determinisme**: Refresh halaman atau pengguna baru masuk langsung menampilkan posisi dan aktivitas karyawan sesuai jam saat ini tanpa reset ke awal.
+  8. **Interface LLM Eksternal (`lib/dialogueEngine.js`)**: Arsitektur modular `IDialogueProvider` siap disambungkan ke Claude API / OpenAI di masa mendatang.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*
