@@ -242,6 +242,18 @@ Dokumen ini mencatat setiap tahap perkembangan dan evolusi aplikasi web **Virtua
   5. 👋 **Interaksi Sapa Karyawan NPC (Rina, Dimas, Sari, Budi)**:
      - Klik avatar karyawan: karyawan langsung menengok, membalas dengan lambaian tangan 👋, memunculkan popup notifikasi ucapan ramah, dan menulis percakapan di chat kantor.
 
+## 📅 Tahap 20: Modal Dialog Percakapan Personal dengan Karyawan (1-on-1 Smart Interaction)
+* **Pengembangan Dialog Personal (Interactive Dialogue Modal)**:
+  - Mengembangkan sistem interaksi saat mengklik 4 karyawan otonom (Rina, Dimas, Sari, Budi) menjadi **Modal Dialog Personal 1-on-1** yang imersif dan interaktif.
+* **Fitur Utama pada Dialog Karyawan**:
+  1. **Profil & Status Emosional/Kebutuhan**: Menampilkan jabatan divisi, kepribadian unik, status kegiatan terkini, serta indikator vital (*Energi, Kenyang, dan Kebutuhan Sosial*).
+  2. **Topik Percakapan Cepat (Quick Topics)**:
+     - 💼 **Update Progres Kerja**: Menanyakan status sprint dan pekerjaan terkini.
+     - ☕ **Ajak Ngopi di Pantry**: Mengajak rehat ngopi bareng.
+     - 📊 **Diskusi di Meeting Room**: Menjadwalkan koordinasi di ruang rapat proyektor.
+     - 🎉 **Beri Apresiasi (Praise)**: Memberi pujian performa kerja dengan efek selebrasi konfeti.
+  3. **Integrasi Obrolan Kantor (Chat Feed Sync)**: Seluruh jawaban karyawan tercatat otomatis di chat kantor virtual secara rapi.
+
 ---
 
 *Log ini diperbarui secara berkala pada repositori GitHub: [avoliofun-dev/ekalaya-office](https://github.com/avoliofun-dev/ekalaya-office)*

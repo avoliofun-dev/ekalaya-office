@@ -174,6 +174,7 @@ export default function VirtualOffice() {
   // INTERACTIVE 3D OBJECTS STATE
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [interactionToast, setInteractionToast] = useState(null); // { title, desc, icon }
+  const [selectedNpcDialog, setSelectedNpcDialog] = useState(null); // { id, name, title, personality, avatarColor, status, lastReply, needs }
   const [meetingNotes, setMeetingNotes] = useState([
     "🎯 Sprint Q4: Target peluncuran modul kantor virtual interaktif",
     "☕ Pantry: Stok biji kopi Arabica sudah diisi ulang",
@@ -699,7 +700,7 @@ export default function VirtualOffice() {
           if (targetObj) {
             const data = targetObj.userData;
 
-            // 1. Interaksi Klik NPC Karyawan
+            // 1. Interaksi Klik NPC Karyawan (Buka Dialog Obrolan Cerdas)
             if (data.id && botsRef.current.has(data.id)) {
               const npcMesh = botsRef.current.get(data.id);
               if (npcMesh) {
@@ -709,20 +710,27 @@ export default function VirtualOffice() {
                   if (npcMesh.userData) npcMesh.userData.action = "idle";
                 }, 2200);
               }
+              const simState = simulationEngineRef.current ? simulationEngineRef.current.npcStates.get(data.id) : null;
               const greetingQuotes = [
-                `Halo pak! Siap, saya sedang menyelesaikan tugas ${data.name.split(" ")[0]} 👍`,
-                `Ada yang bisa saya bantu di divisi ${data.title || "kantor"}?`,
-                `Semangat kerjanya pak! Ruang meeting siap digunakan kapan saja.`,
-                `Kopi di pantry tadi enak banget pak, monggo dicoba!`
+                `Halo pak! Siap, saya sedang fokus ${data.title ? `di tugas ${data.title}` : "bekerja"} 👍`,
+                `Ada yang bisa saya bantu atau mau kita bahas di ruang meeting?`,
+                `Semangat kerjanya pak! Semuanya on track sesuai sprint.`,
+                `Kopi di pantry barusan sedap banget pak, monggo istirahat bentar.`
               ];
               const randomQuote = greetingQuotes[Math.floor(Math.random() * greetingQuotes.length)];
-              addSystemMessage(`💬 ${data.name}: "${randomQuote}"`);
-              setInteractionToast({
-                title: `${data.name} (${data.title || "Karyawan"})`,
-                desc: randomQuote,
-                icon: "👋"
+              
+              setSelectedNpcDialog({
+                id: data.id,
+                name: data.name,
+                title: data.title || "Karyawan",
+                personality: simState ? simState.personality : "Ramah & Profesional",
+                avatarColor: simState ? simState.avatarColor : "#0284c7",
+                currentStatus: simState ? simState.currentStatusLabel : "Aktif",
+                needs: simState ? simState.needs : { energy: 85, hunger: 20, social: 70 },
+                reply: randomQuote
               });
-              confetti({ particleCount: 20, spread: 50, origin: { y: 0.7 } });
+              addSystemMessage(`💬 ${data.name}: "${randomQuote}"`);
+              confetti({ particleCount: 25, spread: 60, origin: { y: 0.7 } });
               return;
             }
 
@@ -1916,6 +1924,139 @@ export default function VirtualOffice() {
                 Tambah
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DIALOG INTERAKTIF PERSONAL DENGAN KARYAWAN (Saat avatar/kamera mengklik NPC) */}
+      {selectedNpcDialog && (
+        <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 md:p-6 max-w-md w-full shadow-2xl text-slate-100 animate-in fade-in zoom-in-95">
+            {/* Header Dialog */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base text-white shadow-lg"
+                  style={{ backgroundColor: selectedNpcDialog.avatarColor }}
+                >
+                  {selectedNpcDialog.name[0]}
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    {selectedNpcDialog.name}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60 font-normal">
+                      {selectedNpcDialog.title}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Status: <span className="text-emerald-400 font-semibold">{selectedNpcDialog.currentStatus}</span> • {selectedNpcDialog.personality}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedNpcDialog(null)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-md bg-slate-800"
+              >
+                Tutup
+              </button>
+            </div>
+
+            {/* Bubble Ucapan Karyawan */}
+            <div className="bg-slate-800/90 border border-cyan-500/30 rounded-2xl p-3.5 mb-4 shadow-inner">
+              <div className="flex items-center gap-1.5 text-cyan-400 text-[11px] font-semibold mb-1">
+                <span>💬 Jawaban {selectedNpcDialog.name}:</span>
+              </div>
+              <p className="text-xs text-slate-100 leading-relaxed italic">
+                "{selectedNpcDialog.reply}"
+              </p>
+            </div>
+
+            {/* Indikator Vital / Kebutuhan Karyawan */}
+            {selectedNpcDialog.needs && (
+              <div className="grid grid-cols-3 gap-2 bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/40 text-[10px] mb-4 text-center">
+                <div>
+                  <span className="text-slate-400 block">⚡ Energi</span>
+                  <strong className="text-amber-300">{Math.round(selectedNpcDialog.needs.energy)}%</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">🍲 Kenyang</span>
+                  <strong className="text-emerald-300">{Math.round(100 - selectedNpcDialog.needs.hunger)}%</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">🤝 Sosial</span>
+                  <strong className="text-cyan-300">{Math.round(selectedNpcDialog.needs.social)}%</strong>
+                </div>
+              </div>
+            )}
+
+            {/* Pilihan Opsi Percakapan Cepat (Quick Dialogue Topics) */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-slate-400">Pilih topik obrolan:</p>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <button
+                  onClick={() => {
+                    const replies = [
+                      `Tugas sprint saya sudah 80% selesai pak! Hari ini siap direview.`,
+                      `Sedang sinkronisasi data dengan tim lain agar tidak ada blocker 👍`,
+                      `Semua timeline aman pak, kita bisa rilis sesuai target.`
+                    ];
+                    const reply = replies[Math.floor(Math.random() * replies.length)];
+                    setSelectedNpcDialog({ ...selectedNpcDialog, reply });
+                    addSystemMessage(`💬 ${selectedNpcDialog.name}: "${reply}"`);
+                  }}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-left text-[11px] text-slate-200 hover:text-white transition-all active:scale-95"
+                >
+                  💼 Update Progres Kerja
+                </button>
+                <button
+                  onClick={() => {
+                    const replies = [
+                      `Wah boleh banget pak! Saya ambil cangkir dulu ya ke barista bar ☕`,
+                      `Pas banget, jam segini butuh kafein biar coding makin fokus!`,
+                      `Siap, saya meluncur ke sofa lounge bareng tim.`
+                    ];
+                    const reply = replies[Math.floor(Math.random() * replies.length)];
+                    setSelectedNpcDialog({ ...selectedNpcDialog, reply });
+                    addSystemMessage(`💬 ${selectedNpcDialog.name}: "${reply}"`);
+                    confetti({ particleCount: 20, spread: 60, origin: { y: 0.7 } });
+                  }}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-left text-[11px] text-slate-200 hover:text-white transition-all active:scale-95"
+                >
+                  ☕ Ajak Ngopi di Pantry
+                </button>
+                <button
+                  onClick={() => {
+                    const replies = [
+                      `Oke pak, saya siapkan bahan presentasi dan proyektor whiteboard di ruang meeting.`,
+                      `Siap diskusi di meja bundar kaca jam 16 nanti!`,
+                      `Catatan agenda rapat sudah saya cek di proyektor.`
+                    ];
+                    const reply = replies[Math.floor(Math.random() * replies.length)];
+                    setSelectedNpcDialog({ ...selectedNpcDialog, reply });
+                    addSystemMessage(`💬 ${selectedNpcDialog.name}: "${reply}"`);
+                  }}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-left text-[11px] text-slate-200 hover:text-white transition-all active:scale-95"
+                >
+                  📊 Diskusi di Meeting Room
+                </button>
+                <button
+                  onClick={() => {
+                    const replies = [
+                      `Terima kasih banyak pak! Semangat juga untuk bapak memimpin tim Ekalaya 🙌`,
+                      `Apresiasi dari bapak bikin kita makin berenergi! 🎉`,
+                      `Siap pak, kita gas pol sampai target tercapai!`
+                    ];
+                    const reply = replies[Math.floor(Math.random() * replies.length)];
+                    setSelectedNpcDialog({ ...selectedNpcDialog, reply });
+                    addSystemMessage(`💬 ${selectedNpcDialog.name}: "${reply}"`);
+                    confetti({ particleCount: 30, spread: 70, origin: { y: 0.6 } });
+                  }}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-left text-[11px] text-slate-200 hover:text-white transition-all active:scale-95"
+                >
+                  🎉 Beri Apresiasi (Praise)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
