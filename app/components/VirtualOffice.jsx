@@ -458,6 +458,22 @@ export default function VirtualOffice() {
     });
     botsRef.current = botMap;
 
+    // LANGSUNG JALANKAN SEKEJUL FASE AKTIF PADA 4 PEGAWAI SEJAK AWAL
+    const initialPhaseSchedule = WORK_CYCLE_SCHEDULE[currentPhaseIndex];
+    if (initialPhaseSchedule && initialPhaseSchedule.bots) {
+      Object.entries(initialPhaseSchedule.bots).forEach(([bId, bSched]) => {
+        const bMesh = botMap.get(bId);
+        if (bMesh) {
+          bMesh.userData.targetX = bSched.position.x;
+          bMesh.userData.targetZ = bSched.position.z;
+          bMesh.userData.targetRot = bSched.rotation;
+          bMesh.userData.action = bSched.action;
+          bMesh.userData.status = bSched.status;
+          bMesh.userData.task = bSched.task;
+        }
+      });
+    }
+
     // SETUP PEER NETWORK (Multiplayer Sync)
     const peerNetwork = new PeerNetwork(
       "ekalaya_hq",
