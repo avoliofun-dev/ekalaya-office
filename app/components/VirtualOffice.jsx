@@ -241,11 +241,11 @@ export default function VirtualOffice() {
   };
 
   // Toggle Suara Latar Kantor (Office Ambience Sound)
-  const toggleAmbienceSound = () => {
+  const toggleAmbienceSound = async () => {
     if (!ambienceEngineRef.current) {
       ambienceEngineRef.current = new OfficeAmbienceEngine();
     }
-    const state = ambienceEngineRef.current.toggle();
+    const state = await ambienceEngineRef.current.toggle();
     setIsAmbiencePlaying(state);
     addSystemMessage(
       state
@@ -1094,7 +1094,7 @@ export default function VirtualOffice() {
           ) : <div />}
 
           {/* TOP RIGHT: CONTROLS & WORKSPACE INFO (DI BARIS KANAN ATAS) */}
-          <div className="flex items-center gap-1 md:gap-1.5 pointer-events-auto">
+          <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
             {/* TOGGLE CLEAN UI */}
             <button
               onClick={() => setIsCleanUIMode(!isCleanUIMode)}
@@ -1122,7 +1122,7 @@ export default function VirtualOffice() {
                   title={isInOffice ? "Keluar Kantor (Mode Pengawas)" : "Masuk ke Dalam Kantor Sebagai Avatar"}
                 >
                   {isInOffice ? <LogOut className="w-3 h-3 text-rose-400" /> : <LogIn className="w-3 h-3 text-emerald-400" />}
-                  <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk Avatar"}</span>
+                  <span className="hidden sm:inline">{isInOffice ? "Keluar" : "Masuk"}</span>
                 </button>
 
                 {/* FULLSCREEN TOGGLE */}
@@ -1162,7 +1162,7 @@ export default function VirtualOffice() {
                   ) : (
                     <VolumeX className="w-3 h-3 text-slate-400" />
                   )}
-                  <span className="hidden lg:inline">{isAmbiencePlaying ? "Suara ON" : "Suara"}</span>
+                  <span className="hidden sm:inline">{isAmbiencePlaying ? "Suara ON" : "Suara"}</span>
                 </button>
 
                 {/* ZOOM LEVEL / VIEW ANGLE TOGGLE */}
@@ -1824,11 +1824,6 @@ export default function VirtualOffice() {
 
       {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}
       <div className="hidden lg:flex absolute bottom-6 right-6 z-10 pointer-events-none items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800 text-[11px] text-slate-400">
-        <span>Geser layar / mouse untuk memutar kamera CCTV pengawas 360°</span>
-      </div>
-
-      {/* QUICK INSTRUCTION TOOLTIP (BOTTOM RIGHT) */}
-      <div className="hidden lg:flex absolute bottom-6 right-6 z-10 pointer-events-none items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-800 text-[11px] text-slate-400">
         <span>Gunakan tombol</span>
         <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-cyan-300 font-mono font-bold">
           WASD
@@ -1837,7 +1832,7 @@ export default function VirtualOffice() {
         <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-cyan-300 font-mono font-bold">
           Panah
         </span>
-        <span>untuk berjalan</span>
+        <span>untuk berjalan • Geser layar untuk putar kamera 360°</span>
       </div>
     </div>
   );
