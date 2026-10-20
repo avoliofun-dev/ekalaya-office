@@ -62,8 +62,11 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
   const containerRef = useRef(null);
 
   // User state & Office Presence State
-  const [userId, setUserId] = useState(currentUser?.id || "user_init");
-  const [playerName, setPlayerName] = useState(currentUser?.name || "Raja (Owner)");
+  // Pertahankan identitas pengguna menggunakan UUID asli dari Supabase (Target 5)
+  const userId = currentUser?.id || "anonymous_user";
+  const [playerName, setPlayerName] = useState(() => currentUser?.name || "Pengguna Kantor");
+
+
   const [playerStatus, setPlayerStatus] = useState("Monitoring"); // Mode Pengawas Kantor
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0].hex);
   const [currentZone, setCurrentZone] = useState("Ruang Pengawas Kantor");
@@ -138,8 +141,9 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
       if (!active) return;
       try {
         const savedName = localStorage.getItem("ekalaya_name");
-        if (savedName) setPlayerName(savedName);
-        setUserId("user_" + Math.random().toString(36).substring(2, 8));
+        if (savedName && !currentUser?.name) setPlayerName(savedName);
+        // Hapus penimpaan ID acak untuk mempertahankan UUID asli dari Supabase Auth
+
 
         // Hydrate simulation time & accelerated state safely on client
         const savedAcc = localStorage.getItem("ekalaya_sim_accelerated") === "true";
@@ -166,7 +170,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentUser?.name]);
 
   // Audio/Video controls
   const [isMuted, setIsMuted] = useState(true);
@@ -856,10 +860,14 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
               return;
             }
 
-            // 4c. Interaksi Konsol Eksekutif & Admin Platform
+            // 4c. Interaksi Konsol Eksekutif & Admin Platform (Hanya Akun Supabase Owner Resmi)
             if (data.interactType === "adminConsole") {
-              setIsAdminModalOpen(true);
-              addSystemMessage(`🛡️ ${playerName} membuka Konsol Administrasi Platform.`);
+              if (currentUser?.role?.toLowerCase() === "owner" && !currentUser?.isEmergencyPin) {
+                setIsAdminModalOpen(true);
+                addSystemMessage(`🛡️ ${playerName} membuka Konsol Administrasi Platform.`);
+              } else {
+                addSystemMessage(`⚠️ Akses ditolak: Konsol Admin hanya dapat diakses oleh akun Supabase Owner terverifikasi.`);
+              }
               return;
             }
 
@@ -1555,10 +1563,8 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
           <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
             {/* KELOMPOK PENGATURAN & AKUN (DI KANAN) */}
             <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-xl md:rounded-2xl border border-slate-700/70 shadow-lg gap-1">
-              {/* TOMBOL PLATFORM ADMIN (Hanya Owner/Admin) */}
-              {(currentUser?.role?.toLowerCase().includes("owner") ||
-                currentUser?.role?.toLowerCase().includes("admin") ||
-                currentUser?.name?.includes("Raja")) && (
+              {/* TOMBOL PLATFORM ADMIN (Hanya Akun Supabase Owner Resmi) */}
+              {currentUser?.role?.toLowerCase() === "owner" && !currentUser?.isEmergencyPin && (
                 <button
                   onClick={() => setIsAdminModalOpen(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg md:rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[10px] md:text-xs font-bold transition-all active:scale-95 shadow-sm"
@@ -2569,6 +2575,7 @@ export default function VirtualOffice({ currentUser = null, onLogout = null }) {
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
         onSubscriptionUpdated={(newSub) => setActiveSubscription(newSub)}
+        currentUser={currentUser}
       />
 
       {/* MODAL PLATFORM ADMIN CONSOLE (PHASE 4) */}

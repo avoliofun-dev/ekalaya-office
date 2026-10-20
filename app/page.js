@@ -1,39 +1,90 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import VirtualOffice from "./components/VirtualOffice";
 import LoginScreen from "./components/LoginScreen";
+import {
+  supabase,
+  isSupabaseConfigured,
+  ensureUserProfile,
+  formatUserAuthObject,
+} from "@/lib/supabase";
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const isMountedRef = useRef(true);
 
-  // Periksa sesi login saat aplikasi dibuka dengan pengaman timeout darurat
+  // Periksa sesi Supabase saat aplikasi dibuka / di-refresh, dan pantau perubahannya
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
 
-    // Timeout darurat 1.5 detik agar pengguna tidak pernah terjebak loading selamanya
+    // Timeout darurat 3 detik agar pengguna tidak terjebak loading selamanya bila jaringan offline
     const timeoutTimer = setTimeout(() => {
-      if (isMounted) {
+      if (isMountedRef.current) {
         setIsCheckingAuth(false);
       }
-    }, 1500);
+    }, 3000);
 
     const checkAuthAsync = async () => {
       try {
-        await Promise.resolve(); // Microtask agar tidak memicu synchronous cascading render
-        if (!isMounted) return;
-        const savedUserStr = localStorage.getItem("ekalaya_auth_user");
-        if (savedUserStr) {
-          const user = JSON.parse(savedUserStr);
-          if (user && user.id) {
-            setCurrentUser(user);
+        if (isSupabaseConfigured && supabase) {
+          // 1. Validasi sesi resmi dari Supabase Auth
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error("Error getSession Supabase:", error.message);
+          }
+
+          if (session?.user) {
+            // Ambil profil dari public.profiles berdasarkan auth.uid()
+            const profile = await ensureUserProfile(session.user);
+            const userObj = formatUserAuthObject(session.user, profile, "supabase");
+            if (isMountedRef.current) {
+              setCurrentUser(userObj);
+              try {
+                localStorage.setItem("ekalaya_auth_user", JSON.stringify(userObj));
+              } catch {}
+            }
+          } else {
+            // Jika tidak ada sesi Supabase, periksa apakah ada sesi PIN darurat sementara
+            const hasEmergencyPin = sessionStorage.getItem("ekalaya_emergency_pin");
+            if (hasEmergencyPin) {
+              const emergencyUser = {
+                id: "emergency-pin-session",
+                name: "Tamu Darurat (PIN)",
+                role: "member", // Role PIN darurat TIDAK BOLEH menjadi Owner
+                isEmergencyPin: true,
+                authMethod: "emergency_pin",
+                email: "emergency@ekalaya.local",
+              };
+              if (isMountedRef.current) {
+                setCurrentUser(emergencyUser);
+              }
+            } else {
+              if (isMountedRef.current) {
+                setCurrentUser(null);
+                try {
+                  localStorage.removeItem("ekalaya_auth_user");
+                } catch {}
+              }
+            }
+          }
+        } else {
+          // Fallback lokal jika Supabase belum dikonfigurasi
+          const savedUserStr = localStorage.getItem("ekalaya_auth_user");
+          if (savedUserStr) {
+            const user = JSON.parse(savedUserStr);
+            if (user && user.id) {
+              // Pastikan fallback lokal tidak memberikan role owner tanpa Supabase
+              user.role = "member";
+              setCurrentUser(user);
+            }
           }
         }
       } catch (e) {
-        console.error("Gagal membaca auth:", e);
+        console.error("Gagal memeriksa sesi auth:", e);
       } finally {
-        if (isMounted) {
+        if (isMountedRef.current) {
           setIsCheckingAuth(false);
           clearTimeout(timeoutTimer);
         }
@@ -42,9 +93,45 @@ export default function Home() {
 
     checkAuthAsync();
 
+    // 2. Pantau perubahan status autentikasi Supabase secara real-time
+    let authListener = null;
+    if (isSupabaseConfigured && supabase) {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (!isMountedRef.current) return;
+
+        if (event === "SIGNED_OUT") {
+          setCurrentUser(null);
+          try {
+            localStorage.removeItem("ekalaya_auth_user");
+            sessionStorage.removeItem("ekalaya_emergency_pin");
+          } catch {}
+          return;
+        }
+
+        if (session?.user) {
+          try {
+            const profile = await ensureUserProfile(session.user);
+            const userObj = formatUserAuthObject(session.user, profile, "supabase");
+            if (isMountedRef.current) {
+              setCurrentUser(userObj);
+              try {
+                localStorage.setItem("ekalaya_auth_user", JSON.stringify(userObj));
+              } catch {}
+            }
+          } catch (err) {
+            console.error("Gagal memperbarui profil pengguna dari auth change:", err);
+          }
+        }
+      });
+      authListener = data?.subscription;
+    }
+
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       clearTimeout(timeoutTimer);
+      if (authListener) {
+        authListener.unsubscribe();
+      }
     };
   }, []);
 
@@ -52,11 +139,24 @@ export default function Home() {
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
+  // 3. Logout harus memanggil supabase.auth.signOut() sebelum membersihkan state
+  const handleLogout = async () => {
     try {
-      localStorage.removeItem("ekalaya_auth_user");
-    } catch (e) {}
-    setCurrentUser(null);
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error("Gagal melakukan Supabase signOut:", error.message);
+        }
+      }
+    } catch (e) {
+      console.error("Kesalahan saat signOut:", e);
+    } finally {
+      try {
+        localStorage.removeItem("ekalaya_auth_user");
+        sessionStorage.removeItem("ekalaya_emergency_pin");
+      } catch {}
+      setCurrentUser(null);
+    }
   };
 
   // Layar Loading Awal dengan Tombol Bypass Pengaman

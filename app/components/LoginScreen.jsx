@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Mail, Key, ShieldCheck, ArrowRight, Sparkles, Building, AlertCircle } from "lucide-react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { Lock, Mail, Key, ShieldCheck, ArrowRight, Sparkles, Building, AlertCircle, Info } from "lucide-react";
+import { supabase, isSupabaseConfigured, ensureUserProfile, formatUserAuthObject } from "@/lib/supabase";
 
 export default function LoginScreen({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -12,27 +12,33 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [passcode, setPasscode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
 
-  // Default Passcode darurat Owner untuk akses instan tanpa setup internet
+  // Default Passcode darurat sementara selama transisi (hanya akses preview kantor, BUKAN sesi Supabase / Owner)
   const OFFICE_ACCESS_CODE = "EKALAYA2026";
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
+    setInfoMessage("");
 
     try {
-      // 1. Opsi Passcode Cepat / PIN Kantor
+      // 1. Opsi PIN Darurat Sementara (Transisi: Tidak boleh menyamar sebagai sesi Supabase / Owner)
       if (passcode.trim()) {
         if (passcode.trim().toUpperCase() === OFFICE_ACCESS_CODE) {
-          const guestUser = {
-            id: "owner_passcode",
-            name: displayName.trim() || "Raja (Owner)",
-            role: "Owner",
-            email: "owner@ekalaya.com"
+          const emergencyUser = {
+            id: "emergency-pin-session",
+            name: displayName.trim() || "Tamu Kantor (PIN Darurat)",
+            role: "member", // Role PIN darurat TIDAK BOLEH menjadi Owner
+            isEmergencyPin: true,
+            authMethod: "emergency_pin",
+            email: "emergency@ekalaya.local",
           };
-          localStorage.setItem("ekalaya_auth_user", JSON.stringify(guestUser));
-          onLoginSuccess(guestUser);
+          try {
+            sessionStorage.setItem("ekalaya_emergency_pin", "true");
+          } catch {}
+          onLoginSuccess(emergencyUser);
           return;
         } else {
           setErrorMessage("Kode PIN Kantor salah! Gunakan PIN akses resmi.");
@@ -41,7 +47,7 @@ export default function LoginScreen({ onLoginSuccess }) {
         }
       }
 
-      // 2. Opsi Login via Supabase Auth
+      // 2. Opsi Login via Supabase Auth (Autentikasi Utama)
       if (isSupabaseConfigured && supabase) {
         if (!email.trim() || !password.trim()) {
           setErrorMessage("Silakan masukkan email dan password.");
@@ -50,6 +56,7 @@ export default function LoginScreen({ onLoginSuccess }) {
         }
 
         if (isRegister) {
+          // Pendaftaran anggota baru: Role Owner TIDAK BOLEH ditetapkan lewat metadata
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -60,39 +67,66 @@ export default function LoginScreen({ onLoginSuccess }) {
             },
           });
           if (error) throw error;
-          const userObj = {
-            id: data.user?.id || `user_${Date.now()}`,
-            name: displayName.trim() || email.split("@")[0],
-            role: "Member",
-            email
-          };
-          localStorage.setItem("ekalaya_auth_user", JSON.stringify(userObj));
+
+          if (!data?.user) {
+            throw new Error("Pendaftaran gagal. Silakan coba kembali.");
+          }
+
+          // Jika email confirmation aktif dan belum ada sesi instan
+          if (!data.session) {
+            setInfoMessage(
+              "Pendaftaran berhasil! Tautan konfirmasi telah dikirim ke email Anda. Silakan verifikasi email lalu masuk."
+            );
+            setIsRegister(false);
+            setIsLoading(false);
+            return;
+          }
+
+          // Pastikan profile dibuat dengan role 'member' di public.profiles
+          const profile = await ensureUserProfile(data.user, displayName.trim());
+          const userObj = formatUserAuthObject(data.user, profile, "supabase");
+
+          try {
+            localStorage.setItem("ekalaya_auth_user", JSON.stringify(userObj));
+          } catch {}
+
           onLoginSuccess(userObj);
         } else {
+          // Login dengan Supabase Auth
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
           if (error) throw error;
-          const userObj = {
-            id: data.user.id,
-            name: data.user.user_metadata?.display_name || email.split("@")[0],
-            role: email.includes("raja") || email.includes("admin") ? "Owner" : "Member",
-            email
-          };
-          localStorage.setItem("ekalaya_auth_user", JSON.stringify(userObj));
+
+          if (!data?.user) {
+            throw new Error("Pengguna tidak ditemukan.");
+          }
+
+          // Role HANYA dibaca dari public.profiles berdasarkan auth.uid()
+          const profile = await ensureUserProfile(data.user);
+          const userObj = formatUserAuthObject(data.user, profile, "supabase");
+
+          try {
+            localStorage.setItem("ekalaya_auth_user", JSON.stringify(userObj));
+          } catch {}
+
           onLoginSuccess(userObj);
         }
       } else {
-        // Fallback jika Supabase URL belum diisi di dashboard Vercel
+        // Fallback jika Supabase belum dikonfigurasi
         if (email.trim() && password.trim()) {
           const localUser = {
-            id: `local_${Date.now()}`,
+            id: "local_preview_user",
             name: displayName.trim() || email.split("@")[0],
-            role: email.toLowerCase().includes("raja") ? "Owner" : "Member",
-            email
+            role: "member", // Tanpa Supabase, tidak ada akses Owner
+            email,
+            authMethod: "local_fallback",
+            isEmergencyPin: false,
           };
-          localStorage.setItem("ekalaya_auth_user", JSON.stringify(localUser));
+          try {
+            localStorage.setItem("ekalaya_auth_user", JSON.stringify(localUser));
+          } catch {}
           onLoginSuccess(localUser);
         } else {
           setErrorMessage("Masukkan email & password atau gunakan Kode Akses Kantor.");
@@ -143,6 +177,13 @@ export default function LoginScreen({ onLoginSuccess }) {
           </span>
         </div>
 
+        {infoMessage && (
+          <div className="mb-4 p-3 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs flex items-center gap-2">
+            <Info className="w-4 h-4 flex-shrink-0" />
+            <span>{infoMessage}</span>
+          </div>
+        )}
+
         {errorMessage && (
           <div className="mb-4 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -160,7 +201,7 @@ export default function LoginScreen({ onLoginSuccess }) {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Contoh: Raja (Owner)"
+                  placeholder="Contoh: Budi Pratama"
                   className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                 />
               </div>
@@ -201,7 +242,7 @@ export default function LoginScreen({ onLoginSuccess }) {
           <div className="relative py-2 flex items-center justify-center">
             <div className="w-full border-t border-slate-800" />
             <span className="bg-slate-900 px-2 text-[10px] text-slate-500 uppercase tracking-wider absolute">
-              Atau PIN Kantor
+              Jalur Transisi Darurat
             </span>
           </div>
 
@@ -210,11 +251,11 @@ export default function LoginScreen({ onLoginSuccess }) {
               type="text"
               value={passcode}
               onChange={(e) => setPasscode(e.target.value)}
-              placeholder="Masukkan PIN Akses Kantor (Opsional)"
+              placeholder="Masukkan PIN Kantor Darurat (Opsional)"
               className="w-full bg-slate-800/50 border border-slate-700/60 rounded-xl px-3.5 py-2 text-xs text-center text-cyan-300 placeholder-slate-500 tracking-widest font-mono uppercase focus:outline-none focus:border-cyan-500"
             />
             <p className="text-[9px] text-slate-500 text-center mt-1">
-              PIN default Owner: <code className="text-cyan-400 font-bold">{OFFICE_ACCESS_CODE}</code>
+              PIN Darurat Transisi: <code className="text-cyan-400 font-bold">{OFFICE_ACCESS_CODE}</code> (Akses peninjauan terbatas, bukan sesi Supabase)
             </p>
           </div>
 

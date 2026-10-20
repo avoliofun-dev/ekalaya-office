@@ -94,8 +94,8 @@ export default function LunaChatModal({
           conversationId: "conv_" + (currentUser?.id || "anon"),
           user: {
             id: currentUser?.id || "user_anon",
-            name: currentUser?.name || "Raja (Owner)",
-            role: currentUser?.role || "Owner",
+            name: currentUser?.name || "Pengguna",
+            role: currentUser?.role || "member",
           },
           organization: {
             id: "org_ekalaya",

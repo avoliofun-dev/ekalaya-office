@@ -23,7 +23,7 @@ import {
   getStoredTransactions,
 } from "@/lib/subscriptionStore";
 
-export default function PricingModal({ isOpen, onClose, onSubscriptionUpdated }) {
+export default function PricingModal({ isOpen, onClose, onSubscriptionUpdated, currentUser }) {
   const [currentSub, setCurrentSub] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [activeTab, setActiveTab] = useState("plans"); // "plans" | "history"
@@ -65,8 +65,8 @@ export default function PricingModal({ isOpen, onClose, onSubscriptionUpdated })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId,
-          customerEmail: "owner@ekalaya.com",
-          customerName: "Raja (Owner)",
+          customerEmail: currentUser?.email || "customer@ekalaya.com",
+          customerName: currentUser?.name || "Pelanggan Ekalaya",
         }),
       });
 

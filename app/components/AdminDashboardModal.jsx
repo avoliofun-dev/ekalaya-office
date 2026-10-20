@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { getStoredTransactions, SUBSCRIPTION_PLANS, getStoredSubscription } from "@/lib/subscriptionStore";
 import { getStoredLeads } from "@/lib/crmStore";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
   const [activeTab, setActiveTab] = useState("overview"); // "overview" | "users" | "ai_logs" | "system"
@@ -41,6 +41,8 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
   });
   const [isSavedQuotas, setIsSavedQuotas] = useState(false);
 
+  const [serverVerified, setServerVerified] = useState(false);
+
   useEffect(() => {
     let isMounted = true;
     if (isOpen) {
@@ -50,26 +52,37 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
         setLeads(getStoredLeads());
         setCurrentSub(getStoredSubscription());
       });
+
+      // Verifikasi token Owner ke server endpoint /api/admin/verify
+      if (isSupabaseConfigured && supabase) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!isMounted || !session?.access_token) return;
+          fetch("/api/admin/verify", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (isMounted && data?.isOwner) {
+                setServerVerified(true);
+              }
+            })
+            .catch(() => {});
+        });
+      }
     }
     return () => {
       isMounted = false;
     };
   }, [isOpen]);
 
-  // Cek Hak Akses Admin (Hanya Owner / Admin)
+  // Cek Hak Akses Admin (Hanya Owner resmi berbasis database Supabase, bukan PIN darurat atau heuristik nama)
   const isAuthorized = useMemo(() => {
-    if (!currentUser) return false;
+    if (!currentUser || currentUser.isEmergencyPin) return false;
     const role = (currentUser.role || "").toLowerCase();
-    const name = (currentUser.name || "").toLowerCase();
-    const email = (currentUser.email || "").toLowerCase();
-    return (
-      role === "owner" ||
-      role === "admin" ||
-      name.includes("raja") ||
-      name.includes("owner") ||
-      email.includes("owner") ||
-      email.includes("admin")
-    );
+    return role === "owner";
   }, [currentUser]);
 
   // Kalkulasi Metrik Finansial Riil
@@ -100,13 +113,13 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
   const mockRegisteredUsers = useMemo(() => {
     return [
       {
-        id: "usr_owner_01",
-        name: currentUser?.name || "Raja (Owner)",
+        id: currentUser?.id || "usr_owner_01",
+        name: currentUser?.name || "Platform Owner",
         email: currentUser?.email || "owner@ekalaya.com",
         role: "Platform Owner",
-        plan: currentSub?.planName || "Starter",
+        plan: currentSub?.planName || "Enterprise",
         status: "Active",
-        lastLogin: "Baru saja",
+        lastLogin: "Sesi Aktif",
       },
       {
         id: "usr_demo_02",
@@ -159,7 +172,9 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
           <div>
             <h3 className="text-base font-bold text-white">Akses Dibatasi</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Konsol Administrasi Platform hanya dapat diakses oleh Platform Owner atau Administrator terverifikasi.
+              {currentUser?.isEmergencyPin
+                ? "Akses PIN Darurat hanya bersifat peninjauan kantor dan tidak dapat mengakses Konsol Admin. Silakan login menggunakan akun Supabase Owner resmi."
+                : "Konsol Administrasi Platform hanya dapat diakses oleh akun dengan peran 'owner' yang terverifikasi di Supabase public.profiles."}
             </p>
           </div>
           <button
@@ -199,7 +214,7 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs">
               <span className="text-slate-400">Admin:</span>
-              <span className="font-bold text-cyan-300">{currentUser?.name || "Raja (Owner)"}</span>
+              <span className="font-bold text-cyan-300">{currentUser?.name || "Platform Owner"}</span>
             </div>
 
             <button
@@ -473,8 +488,8 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
                   </div>
                   <p className="text-[11px] text-slate-400">
                     {isSupabaseConfigured
-                      ? "Koneksi cloud database Supabase aktif."
-                      : "Berjalan dengan penyimpanan sesi lokal & PIN darurat EKALAYA2026."}
+                      ? `Koneksi cloud database Supabase aktif. Status verifikasi server: ${serverVerified ? "Terverifikasi Server (Owner Valid)" : "Memvalidasi Sesi..."}`
+                      : "Berjalan dengan penyimpanan sesi lokal."}
                   </p>
                 </div>
 
