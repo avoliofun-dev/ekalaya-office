@@ -1,0 +1,44 @@
+{
+  "name": "Ekalaya AI Sales Assistant (Luna)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ekalaya-ai",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [-176, 0],
+      "id": "ec5bbda3-3385-458c-8c4a-c19b9225ae02",
+      "name": "Webhook",
+      "webhookId": "05589fdf-a49e-4652-bacd-e12739c95a7c"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"success\": true,\n  \"source\": \"n8n_workflow\",\n  \"message\": \"Alur kerja otomasi n8n berhasil mengeksekusi permintaan Anda secara real-time! 🚀\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [48, 0],
+      "id": "90acde72-7e1f-4909-ba70-0240fc8f9552",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

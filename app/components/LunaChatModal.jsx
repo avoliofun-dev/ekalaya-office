@@ -48,7 +48,18 @@ export default function LunaChatModal({
   const [inputMessage, setInputMessage] = useState("");
   const [activeTaskResult, setActiveTaskResult] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [n8nStatus, setN8nStatus] = useState({ online: true, latencyMs: null });
   const messagesEndRef = useRef(null);
+
+  // Deteksi status koneksi n8n saat modal dibuka
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/n8n/status")
+        .then((r) => r.json())
+        .then((d) => setN8nStatus({ online: !!d.online, latencyMs: d.latencyMs || null }))
+        .catch(() => setN8nStatus({ online: false, latencyMs: null }));
+    }
+  }, [isOpen]);
 
   // Auto-scroll ke pesan terbaru
   useEffect(() => {
@@ -217,7 +228,14 @@ export default function LunaChatModal({
                 <span className={`text-[10px] px-2 py-0.2 rounded-full border ${badge.color}`}>
                   {badge.label}
                 </span>
-                <span className="text-[10px] text-slate-500">n8n Workflow Engine</span>
+                <span className={`text-[10px] px-2 py-0.2 rounded-full flex items-center gap-1 border ${
+                  n8nStatus.online
+                    ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                    : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${n8nStatus.online ? "bg-purple-400 animate-pulse" : "bg-amber-400"}`} />
+                  {n8nStatus.online ? `n8n Terhubung ${n8nStatus.latencyMs ? `(${n8nStatus.latencyMs}ms)` : ""}` : "n8n Mode Fallback"}
+                </span>
               </div>
             </div>
           </div>
