@@ -36,6 +36,8 @@ import {
   getDailyQuota,
   incrementQuotaUsage,
   LEAD_STATUSES,
+  resolveAuthUserId,
+  syncLocalLeadsToSupabaseAsync,
 } from "@/lib/crmStore";
 import { BUSINESS_KNOWLEDGE_BASE } from "@/lib/knowledgeBase";
 import { supabase } from "@/lib/supabase";
@@ -72,20 +74,52 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
   const [aiProviderInfo, setAiProviderInfo] = useState("");
   const [copiedToast, setCopiedToast] = useState(false);
 
+  // State Status Cloud & Sinkronisasi
+  const [storageStatus, setStorageStatus] = useState("loading"); // "supabase" | "local" | "loading"
+  const [hasUnsyncedLocalData, setHasUnsyncedLocalData] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(""), 3500);
+  };
+
   // Load leads dan kuota dari Supabase database saat modal dibuka
   useEffect(() => {
     let isMounted = true;
     if (isOpen) {
-      fetchLeadsAsync(currentUser).then((freshLeads) => {
+      resolveAuthUserId(currentUser).then((userId) => {
         if (!isMounted) return;
-        if (Array.isArray(freshLeads) && freshLeads.length > 0) {
-          setLeads(freshLeads);
-          setSelectedLeadForAi((prev) => {
-            if (!prev || !freshLeads.find((l) => l.id === prev.id)) {
-              return freshLeads[0];
+        if (userId) {
+          fetchLeadsAsync(currentUser).then((freshLeads) => {
+            if (!isMounted) return;
+            setStorageStatus("supabase");
+            if (Array.isArray(freshLeads)) {
+              if (freshLeads.length > 0) {
+                setLeads(freshLeads);
+                setHasUnsyncedLocalData(false);
+                setSelectedLeadForAi((prev) => {
+                  if (!prev || !freshLeads.find((l) => l.id === prev.id)) {
+                    return freshLeads[0];
+                  }
+                  return prev;
+                });
+              } else {
+                // Cloud Supabase masih kosong (0 baris), periksa apakah ada data lokal yang perlu dimigrasikan
+                const local = getStoredLeads();
+                if (local.length > 0) {
+                  setHasUnsyncedLocalData(true);
+                  setLeads(local);
+                } else {
+                  setLeads([]);
+                }
+              }
             }
-            return prev;
           });
+        } else {
+          setStorageStatus("local");
+          setLeads(getStoredLeads());
         }
       });
     }
@@ -109,6 +143,27 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
 
   if (!isOpen) return null;
 
+  // Handle Sinkronisasi Data Lokal ke Supabase Cloud
+  const handleSyncToCloud = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncLocalLeadsToSupabaseAsync(currentUser);
+      if (res.success) {
+        if (res.allLeads && res.allLeads.length > 0) {
+          setLeads(res.allLeads);
+        }
+        setHasUnsyncedLocalData(false);
+        showToast(`Berhasil menyinkronkan ${res.count || leads.length} prospek ke Supabase Cloud!`);
+      } else {
+        alert(`Gagal sinkronisasi: ${res.error}`);
+      }
+    } catch (err) {
+      alert(`Kesalahan sinkronisasi: ${err.message}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Handle Form Submit (Tambah / Edit ke Supabase database)
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -117,12 +172,15 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
     if (editingLeadId) {
       const res = await updateLeadAsync(editingLeadId, formData, currentUser);
       if (res?.allLeads) setLeads(res.allLeads);
+      showToast(res?.source === "supabase" ? "Prospek berhasil diperbarui di Supabase Cloud!" : "Prospek diperbarui di lokal.");
     } else {
       const res = await addLeadAsync(formData, currentUser);
       if (res?.allLeads) {
         setLeads(res.allLeads);
         if (res.lead) setSelectedLeadForAi(res.lead);
+        setHasUnsyncedLocalData(false);
       }
+      showToast(res?.source === "supabase" ? "Prospek baru tersimpan di Supabase Cloud!" : "Prospek baru disimpan di lokal.");
     }
 
     setIsFormOpen(false);
@@ -163,12 +221,14 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
           setSelectedLeadForAi(res.allLeads[0] || null);
         }
       }
+      showToast(res?.source === "supabase" ? "Prospek dihapus dari Supabase Cloud." : "Prospek dihapus dari lokal.");
     }
   };
 
   const handleStatusChange = async (leadId, newStatus) => {
     const res = await updateLeadAsync(leadId, { status: newStatus }, currentUser);
     if (res?.allLeads) setLeads(res.allLeads);
+    showToast(res?.source === "supabase" ? `Status diperbarui ke '${newStatus}' di Cloud Supabase` : `Status diperbarui ke '${newStatus}'`);
     if (newStatus === "Won") {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     }
@@ -292,6 +352,26 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Indikator Status Penyimpanan Cloud Supabase */}
+            <div className="hidden md:flex items-center px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs font-medium">
+              {storageStatus === "supabase" ? (
+                <div className="flex items-center gap-1.5 text-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Cloud Supabase</span>
+                </div>
+              ) : storageStatus === "local" ? (
+                <div className="flex items-center gap-1.5 text-amber-300">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span>Penyimpanan Lokal</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
+                  <span>Memeriksa...</span>
+                </div>
+              )}
+            </div>
+
             {/* Indikator Kuota AI & Tombol Upgrade */}
             <div className="hidden sm:flex items-center gap-2">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs">
@@ -366,6 +446,46 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
           {/* ===================== TAB 1: CRM & PIPELINE ===================== */}
           {activeTab === "crm" && (
             <div className="space-y-6">
+
+              {/* TOAST FEEDBACK NOTIFIKASI */}
+              {toastMessage && (
+                <div className="p-3 bg-cyan-500/20 border border-cyan-500/40 rounded-xl text-xs text-cyan-200 flex items-center gap-2 animate-fade-in shadow-md">
+                  <CheckCircle className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>{toastMessage}</span>
+                </div>
+              )}
+
+              {/* BANNER REKOMENDASI MIGRASI DATA LOKAL KE SUPABASE */}
+              {hasUnsyncedLocalData && storageStatus === "supabase" && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-blue-900/40 via-cyan-900/30 to-slate-900/50 border border-cyan-500/40 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center shrink-0 border border-cyan-500/30">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white flex items-center gap-2">
+                        Tersambung ke Supabase Cloud
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-normal">
+                          {leads.length} prospek di lokal
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        Tabel di Supabase masih kosong. Anda dapat menyinkronkan data contoh/lokal saat ini ke database cloud sekarang.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSyncToCloud}
+                    disabled={isSyncing}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition shadow-md whitespace-nowrap"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+                    {isSyncing ? "Menyinkronkan..." : "Sinkronkan ke Cloud Supabase"}
+                  </button>
+                </div>
+              )}
+
               {/* STATS CARDS */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50">
