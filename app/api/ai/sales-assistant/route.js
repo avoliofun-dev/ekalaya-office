@@ -1,19 +1,86 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { BUSINESS_KNOWLEDGE_BASE } from "@/lib/knowledgeBase";
 
 /**
  * Server-Side AI Sales Assistant Endpoint
- * Mendukung integrasi LLM eksternal (Gemini/OpenAI) serta fallback berbasis basis pengetahuan resmi terverifikasi.
+ * Mendukung integrasi LLM eksternal (Gemini/OpenAI), fallback grounded knowledge base,
+ * dan penegakan batas kuota harian di sisi server / database (Target D).
  */
 export async function POST(request) {
   try {
+    const authHeader = request.headers.get("authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
     const body = await request.json();
     const { taskType = "followup_draft", lead = null, userQuery = "" } = body;
 
+    // 1. SERVER-SIDE QUOTA ENFORCEMENT & OTORISASI
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+    let userId = null;
+    let quotaLimit = 20; // Default Free plan
+    let quotaUsed = 0;
+
+    if (token && supabaseUrl && supabaseAnonKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        });
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+        if (!userError && user) {
+          userId = user.id;
+
+          // Periksa paket langganan aktif dari user_subscriptions (server verified)
+          const { data: sub } = await supabase
+            .from("user_subscriptions")
+            .select("plan_id, status")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (sub && sub.status === "active") {
+            if (sub.plan_id === "starter") quotaLimit = 100;
+            else if (sub.plan_id === "business") quotaLimit = 300;
+            else if (sub.plan_id === "pro") quotaLimit = 1000;
+          }
+
+          // Periksa pemakaian hari ini dari ai_daily_usage
+          const today = new Date().toISOString().slice(0, 10);
+          const { data: usageRow } = await supabase
+            .from("ai_daily_usage")
+            .select("count")
+            .eq("user_id", userId)
+            .eq("usage_date", today)
+            .maybeSingle();
+
+          quotaUsed = usageRow?.count || 0;
+
+          // Batasi pemakaian di server — tidak dapat ditembus dengan manipulasi localStorage browser
+          if (quotaUsed >= quotaLimit) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: "QUOTA_EXCEEDED",
+                message: `Kuota harian AI (${quotaUsed}/${quotaLimit}) telah habis. Upgrade paket untuk menambah kuota.`,
+                quota: { used: quotaUsed, limit: quotaLimit, remaining: 0 },
+              },
+              { status: 429 }
+            );
+          }
+        }
+      } catch (errAuth) {
+        console.warn("Pemeriksaan kuota server error non-fatal:", errAuth);
+      }
+    }
+
     const geminiKey = process.env.GEMINI_API_KEY || "";
     const openAiKey = process.env.OPENAI_API_KEY || "";
+    let generatedResult = null;
+    let providerName = null;
 
-    // JIKA TERSEDIA GEMINI API KEY DI SERVER
+    // 2. JIKA TERSEDIA GEMINI API KEY DI SERVER
     if (geminiKey) {
       try {
         const systemPrompt = `Anda adalah Ekalaya AI Sales Assistant resmi untuk PT Ekalaya Inovasi Digital.
@@ -57,14 +124,10 @@ Catatan Terakhir: ${lead.notes || "-"}`;
 
         if (res.ok) {
           const data = await res.json();
-          const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (generatedText) {
-            return NextResponse.json({
-              success: true,
-              result: generatedText,
-              provider: "Gemini 1.5 Flash (Live Cloud)",
-              timestamp: new Date().toISOString(),
-            });
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            generatedResult = text;
+            providerName = "Gemini 1.5 Flash (Live Cloud)";
           }
         }
       } catch (err) {
@@ -72,8 +135,8 @@ Catatan Terakhir: ${lead.notes || "-"}`;
       }
     }
 
-    // JIKA TERSEDIA OPENAI API KEY DI SERVER
-    if (openAiKey) {
+    // 3. JIKA TERSEDIA OPENAI API KEY DI SERVER
+    if (!generatedResult && openAiKey) {
       try {
         const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -100,12 +163,8 @@ Catatan Terakhir: ${lead.notes || "-"}`;
           const data = await res.json();
           const text = data.choices?.[0]?.message?.content;
           if (text) {
-            return NextResponse.json({
-              success: true,
-              result: text,
-              provider: "OpenAI GPT-4o-mini (Live Cloud)",
-              timestamp: new Date().toISOString(),
-            });
+            generatedResult = text;
+            providerName = "OpenAI GPT-4o-mini (Live Cloud)";
           }
         }
       } catch (err) {
@@ -113,52 +172,90 @@ Catatan Terakhir: ${lead.notes || "-"}`;
       }
     }
 
-    // MODE GROUNDED KNOWLEDGE BASE SERVER (Saat Kredensial API Eksternal Belum Disetel)
-    // Menghasilkan draf yang akurat, terstruktur, dan tidak mengarang bebas sesuai pedoman SOP
-    let fallbackText = "";
-    const status = lead?.status || "New";
-    const leadName = lead?.name || "Bapak/Ibu";
-    const leadCompany = lead?.company ? ` (${lead.company})` : "";
-    const interest = lead?.interest || "Kantor Virtual 3D & AI Ekalaya";
+    // 4. MODE GROUNDED KNOWLEDGE BASE SERVER (Fallback Resmi)
+    if (!generatedResult) {
+      const status = lead?.status || "New";
+      const leadName = lead?.name || "Bapak/Ibu";
+      const leadCompany = lead?.company ? ` (${lead.company})` : "";
+      const interest = lead?.interest || "Kantor Virtual 3D & AI Ekalaya";
 
-    if (taskType === "followup_draft") {
-      switch (status) {
-        case "New":
-          fallbackText = `Halo ${leadName}${leadCompany}, salam kenal dari tim Ekalaya AI Business Office! 👋\n\nTerima kasih telah menunjukkan ketertarikan pada ${interest}. Kami ingin mengonfirmasi apakah ada waktu santai 5-10 menit untuk kami demokan bagaimana kantor virtual 3D dan asisten AI kami bisa membantu menghemat waktu tim Anda?\n\nSalam hangat,\nTim Penjualan Ekalaya`;
-          break;
-        case "Contacted":
-          fallbackText = `Selamat siang ${leadName}${leadCompany}, melanjutkan obrolan singkat kita sebelumnya mengenai ${interest}. 😊\n\nUntuk kebutuhan tim saat ini, paket kami yang paling diminati adalah:\n• Starter (Rp99.000/bln) – untuk perorangan/toko\n• Business (Rp299.000/bln) – untuk tim aktif dengan asisten AI terpadu\n\nKira-kira paket mana yang paling pas untuk target bisnis Anda bulan ini?`;
-          break;
-        case "Interested":
-          fallbackText = `Halo ${leadName}${leadCompany}! Semoga hari Anda menyenangkan. ✨\n\nMenindaklanjuti ketertarikan Anda pada ${interest}, kami sudah menyiapkan demo live kantor 3D yang bisa langsung dicoba bersama rekan kerja.\n\nApakah besok pukul 10:00 atau 14:00 WIB cocok untuk kita adakan sesi walkthrough singkat?`;
-          break;
-        case "Negotiation":
-          fallbackText = `Halo ${leadName}${leadCompany}, salam hangat dari tim Ekalaya.\n\nMengenai diskusi paket langganan kemarin, khusus untuk aktivasi tahunan bulan ini, kami menyediakan benefit 2 Bulan Gratis langganan serta pendampingan setup kustom avatar kantor 3D.\n\nApakah kami bisa bantu siapkan tagihan aktivasi dan aksesnya hari ini?`;
-          break;
-        case "Won":
-          fallbackText = `Selamat bergabung di keluarga Ekalaya AI Office, ${leadName}! 🎉🏢\n\nKantor virtual 3D dan akun tim Anda sudah aktif dan siap digunakan. Silakan akses link workspace kantor Anda dan tim support kami siap mendampingi sesi orientasi pertama.\n\nSukses selalu untuk kemajuan bisnis Anda!`;
-          break;
-        case "Lost":
-          fallbackText = `Halo ${leadName}${leadCompany}, terima kasih banyak atas waktu dan diskusi yang telah kita luangkan sebelumnya.\n\nKami sangat memahami jika saat ini belum menjadi prioritas. Kami akan tetap menjaga kontak dan siap membantu kapan pun tim Anda membutuhkan otomasi kantor virtual di masa mendatang. 🙏`;
-          break;
-        default:
-          fallbackText = `Halo ${leadName}${leadCompany}, ada yang bisa kami bantu terkait layanan kantor virtual Ekalaya AI?`;
+      if (taskType === "followup_draft") {
+        switch (status) {
+          case "New":
+            generatedResult = `Halo ${leadName}${leadCompany}, salam kenal dari tim Ekalaya AI Business Office! 👋\n\nTerima kasih telah menunjukkan ketertarikan pada ${interest}. Kami ingin mengonfirmasi apakah ada waktu santai 5-10 menit untuk kami demokan bagaimana kantor virtual 3D dan asisten AI kami bisa membantu menghemat waktu tim Anda?\n\nSalam hangat,\nTim Penjualan Ekalaya`;
+            break;
+          case "Contacted":
+            generatedResult = `Selamat siang ${leadName}${leadCompany}, melanjutkan obrolan singkat kita sebelumnya mengenai ${interest}. 😊\n\nUntuk kebutuhan tim saat ini, paket kami yang paling diminati adalah:\n• Starter (Rp99.000/bln) – untuk perorangan/toko\n• Business (Rp299.000/bln) – untuk tim aktif dengan asisten AI terpadu\n\nKira-kira paket mana yang paling pas untuk target bisnis Anda bulan ini?`;
+            break;
+          case "Interested":
+            generatedResult = `Halo ${leadName}${leadCompany}! Semoga hari Anda menyenangkan. ✨\n\nMenindaklanjuti ketertarikan Anda pada ${interest}, kami sudah menyiapkan demo live kantor 3D yang bisa langsung dicoba bersama rekan kerja.\n\nApakah besok pukul 10:00 atau 14:00 WIB cocok untuk kita adakan sesi walkthrough singkat?`;
+            break;
+          case "Negotiation":
+            generatedResult = `Halo ${leadName}${leadCompany}, salam hangat dari tim Ekalaya.\n\nMengenai diskusi paket langganan kemarin, khusus untuk aktivasi tahunan bulan ini, kami menyediakan benefit 2 Bulan Gratis langganan serta pendampingan setup kustom avatar kantor 3D.\n\nApakah kami bisa bantu siapkan tagihan aktivasi dan aksesnya hari ini?`;
+            break;
+          case "Won":
+            generatedResult = `Selamat bergabung di keluarga Ekalaya AI Office, ${leadName}! 🎉🏢\n\nKantor virtual 3D dan akun tim Anda sudah aktif dan siap digunakan. Silakan akses link workspace kantor Anda dan tim support kami siap mendampingi sesi orientasi pertama.\n\nSukses selalu untuk kemajuan bisnis Anda!`;
+            break;
+          case "Lost":
+            generatedResult = `Halo ${leadName}${leadCompany}, terima kasih banyak atas waktu dan diskusi yang telah kita luangkan sebelumnya.\n\nKami sangat memahami jika saat ini belum menjadi prioritas. Kami akan tetap menjaga kontak dan siap membantu kapan pun tim Anda membutuhkan otomasi kantor virtual di masa mendatang. 🙏`;
+            break;
+          default:
+            generatedResult = `Halo ${leadName}${leadCompany}, ada yang bisa kami bantu terkait layanan kantor virtual Ekalaya AI?`;
+        }
+      } else if (taskType === "next_step_recommendation") {
+        const guideline = BUSINESS_KNOWLEDGE_BASE.salesFollowUpGuidelines[status] || BUSINESS_KNOWLEDGE_BASE.salesFollowUpGuidelines.New;
+        generatedResult = `📌 Rekomendasi Tindakan untuk [${leadName} - ${status}]:\n\n1. Target Utama: ${guideline.goal}\n2. Nada Pendekatan: ${guideline.suggestedTone}\n3. Aksi Cepat: Salin draf pesan WhatsApp yang telah disiapkan di atas, kirimkan via nomor ${lead?.phone || "resmi"}, dan jadwalkan follow-up berikutnya dalam 24-48 jam.`;
+      } else {
+        const starterPlan = BUSINESS_KNOWLEDGE_BASE.plans.find((p) => p.id === "starter");
+        const businessPlan = BUSINESS_KNOWLEDGE_BASE.plans.find((p) => p.id === "business");
+        generatedResult = `📚 Informasi Resmi Ekalaya AI Business Office:\n\n• Paket Starter: ${starterPlan.priceFormatted} (CRM prospek, 100 AI/hari, 3 user)\n• Paket Business: ${businessPlan.priceFormatted} (CRM tanpa batas, 300 AI/hari, 10 user)\n• Metode Pembayaran: QRIS, Virtual Account BCA/Mandiri/BNI/BRI, Kartu Kredit\n• Garansi: 7 hari uang kembali tanpa syarat.\n\n(Dihasilkan dari Basis Pengetahuan Terverifikasi)`;
       }
-    } else if (taskType === "next_step_recommendation") {
-      const guideline = BUSINESS_KNOWLEDGE_BASE.salesFollowUpGuidelines[status] || BUSINESS_KNOWLEDGE_BASE.salesFollowUpGuidelines.New;
-      fallbackText = `📌 Rekomendasi Tindakan untuk [${leadName} - ${status}]:\n\n1. Target Utama: ${guideline.goal}\n2. Nada Pendekatan: ${guideline.suggestedTone}\n3. Aksi Cepat: Salin draf pesan WhatsApp yang telah disiapkan di atas, kirimkan via nomor ${lead?.phone || "resmi"}, dan jadwalkan follow-up berikutnya dalam 24-48 jam.`;
-    } else {
-      // Pertanyaan umum produk / query
-      const starterPlan = BUSINESS_KNOWLEDGE_BASE.plans.find((p) => p.id === "starter");
-      const businessPlan = BUSINESS_KNOWLEDGE_BASE.plans.find((p) => p.id === "business");
-      fallbackText = `📚 Informasi Resmi Ekalaya AI Business Office:\n\n• Paket Starter: ${starterPlan.priceFormatted} (CRM prospek, 100 AI/hari, 3 user)\n• Paket Business: ${businessPlan.priceFormatted} (CRM tanpa batas, 300 AI/hari, 10 user)\n• Metode Pembayaran: QRIS, Virtual Account BCA/Mandiri/BNI/BRI, Kartu Kredit\n• Garansi: 7 hari uang kembali tanpa syarat.\n\n(Dihasilkan dari Basis Pengetahuan Terverifikasi)`;
+
+      providerName = "Ekalaya Knowledge-Base Grounding Engine (Server)";
+    }
+
+    // 5. UPDATE KUOTA DI DATABASE SERVER
+    if (userId && supabaseUrl && supabaseAnonKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
+        });
+        const today = new Date().toISOString().slice(0, 10);
+        await supabase.rpc("increment_ai_usage", { p_user_id: userId, p_date: today }).catch(async () => {
+          const { data: existing } = await supabase
+            .from("ai_daily_usage")
+            .select("count")
+            .eq("user_id", userId)
+            .eq("usage_date", today)
+            .maybeSingle();
+
+          if (existing) {
+            await supabase
+              .from("ai_daily_usage")
+              .update({ count: existing.count + 1, updated_at: new Date().toISOString() })
+              .eq("user_id", userId)
+              .eq("usage_date", today);
+          } else {
+            await supabase
+              .from("ai_daily_usage")
+              .insert({ user_id: userId, usage_date: today, count: 1 });
+          }
+        });
+        quotaUsed += 1;
+      } catch (errQuota) {
+        console.warn("Gagal update counter pemakaian kuota server:", errQuota);
+      }
     }
 
     return NextResponse.json({
       success: true,
-      result: fallbackText,
-      provider: "Ekalaya Knowledge-Base Grounding Engine (Server)",
-      note: "API Key LLM eksternal (GEMINI_API_KEY / OPENAI_API_KEY) belum disetel di .env; respons didasarkan pada Basis Pengetahuan Resmi PT Ekalaya Inovasi Digital.",
+      result: generatedResult,
+      provider: providerName,
+      quota: {
+        used: quotaUsed,
+        limit: quotaLimit,
+        remaining: Math.max(0, quotaLimit - quotaUsed),
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

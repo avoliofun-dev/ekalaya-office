@@ -20,6 +20,7 @@ import {
   SUBSCRIPTION_PLANS,
   getStoredSubscription,
   activateSubscription,
+  activateSubscriptionAsync,
   getStoredTransactions,
 } from "@/lib/subscriptionStore";
 
@@ -85,12 +86,17 @@ export default function PricingModal({ isOpen, onClose, onSubscriptionUpdated, c
   };
 
   // Simulasi Pembayaran Sukses di Mode Sandbox
-  const handleSimulateSandboxPayment = () => {
+  const handleSimulateSandboxPayment = async () => {
     if (!checkoutData) return;
 
-    const activated = activateSubscription(checkoutData.orderId, checkoutData.planId, {
-      paymentMethod: "QRIS / Virtual Account (Sandbox Simulator)",
-    });
+    const activated = await activateSubscriptionAsync(
+      checkoutData.orderId,
+      checkoutData.planId,
+      {
+        paymentMethod: "QRIS / Virtual Account (Sandbox Simulator)",
+      },
+      currentUser
+    );
 
     if (activated) {
       setCurrentSub(activated);

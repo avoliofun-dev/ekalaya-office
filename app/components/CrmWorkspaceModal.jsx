@@ -27,23 +27,25 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
+  fetchLeadsAsync,
+  addLeadAsync,
+  updateLeadAsync,
+  deleteLeadAsync,
   getStoredLeads,
-  addLead,
-  updateLead,
-  deleteLead,
   getLeadStats,
   getDailyQuota,
   incrementQuotaUsage,
   LEAD_STATUSES,
 } from "@/lib/crmStore";
 import { BUSINESS_KNOWLEDGE_BASE } from "@/lib/knowledgeBase";
+import { supabase } from "@/lib/supabase";
 
 export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = null, currentUser }) {
   const [activeTab, setActiveTab] = useState("crm"); // "crm" | "ai" | "kb"
-  const [leads, setLeads] = useState([]);
+  const [leads, setLeads] = useState(() => getStoredLeads());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [quota, setQuota] = useState({ used: 0, remaining: 20, limit: 20 });
+  const [quota, setQuota] = useState(() => getDailyQuota());
 
   // State Form Tambah/Edit Prospek
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -60,31 +62,37 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
   });
 
   // State AI Sales Assistant
-  const [selectedLeadForAi, setSelectedLeadForAi] = useState(null);
+  const [selectedLeadForAi, setSelectedLeadForAi] = useState(() => {
+    const initial = getStoredLeads();
+    return initial.length > 0 ? initial[0] : null;
+  });
   const [aiCustomPrompt, setAiCustomPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [aiProviderInfo, setAiProviderInfo] = useState("");
   const [copiedToast, setCopiedToast] = useState(false);
 
-  // Load leads dan kuota
+  // Load leads dan kuota dari Supabase database saat modal dibuka
   useEffect(() => {
     let isMounted = true;
     if (isOpen) {
-      Promise.resolve().then(() => {
+      fetchLeadsAsync(currentUser).then((freshLeads) => {
         if (!isMounted) return;
-        const stored = getStoredLeads();
-        setLeads(stored);
-        setQuota(getDailyQuota());
-        if (stored.length > 0 && !selectedLeadForAi) {
-          setSelectedLeadForAi(stored[0]);
+        if (Array.isArray(freshLeads) && freshLeads.length > 0) {
+          setLeads(freshLeads);
+          setSelectedLeadForAi((prev) => {
+            if (!prev || !freshLeads.find((l) => l.id === prev.id)) {
+              return freshLeads[0];
+            }
+            return prev;
+          });
         }
       });
     }
     return () => {
       isMounted = false;
     };
-  }, [isOpen, selectedLeadForAi]);
+  }, [isOpen, currentUser]);
 
   const stats = useMemo(() => getLeadStats(leads), [leads]);
 
@@ -101,17 +109,20 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
 
   if (!isOpen) return null;
 
-  // Handle Form Submit
-  const handleFormSubmit = (e) => {
+  // Handle Form Submit (Tambah / Edit ke Supabase database)
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
     if (editingLeadId) {
-      const updated = updateLead(editingLeadId, formData);
-      setLeads(updated);
+      const res = await updateLeadAsync(editingLeadId, formData, currentUser);
+      if (res?.allLeads) setLeads(res.allLeads);
     } else {
-      const updated = addLead(formData);
-      setLeads(updated);
+      const res = await addLeadAsync(formData, currentUser);
+      if (res?.allLeads) {
+        setLeads(res.allLeads);
+        if (res.lead) setSelectedLeadForAi(res.lead);
+      }
     }
 
     setIsFormOpen(false);
@@ -135,7 +146,7 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
       company: lead.company || "",
       phone: lead.phone || "",
       source: lead.source || "WhatsApp",
-      interest: lead.interest || "Paket Starter",
+      interest: lead.interest || "Paket Starter (Rp99.000)",
       estimatedValue: lead.estimatedValue || 99000,
       status: lead.status || "New",
       notes: lead.notes || "",
@@ -143,25 +154,27 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
     setIsFormOpen(true);
   };
 
-  const handleDeleteClick = (leadId) => {
+  const handleDeleteClick = async (leadId) => {
     if (confirm("Hapus prospek ini dari CRM?")) {
-      const updated = deleteLead(leadId);
-      setLeads(updated);
-      if (selectedLeadForAi?.id === leadId) {
-        setSelectedLeadForAi(updated[0] || null);
+      const res = await deleteLeadAsync(leadId, currentUser);
+      if (res?.allLeads) {
+        setLeads(res.allLeads);
+        if (selectedLeadForAi?.id === leadId) {
+          setSelectedLeadForAi(res.allLeads[0] || null);
+        }
       }
     }
   };
 
-  const handleStatusChange = (leadId, newStatus) => {
-    const updated = updateLead(leadId, { status: newStatus });
-    setLeads(updated);
+  const handleStatusChange = async (leadId, newStatus) => {
+    const res = await updateLeadAsync(leadId, { status: newStatus }, currentUser);
+    if (res?.allLeads) setLeads(res.allLeads);
     if (newStatus === "Won") {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     }
   };
 
-  // Jalankan AI Sales Assistant
+  // Jalankan AI Sales Assistant dengan validasi kuota server
   const runAiAssistant = async (taskType) => {
     if (quota.remaining <= 0) {
       if (
@@ -182,9 +195,21 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
     setAiProviderInfo("");
 
     try {
+      // Ambil token sesi Supabase untuk verifikasi server-side
+      let authToken = "";
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          authToken = session?.access_token || "";
+        } catch {}
+      }
+
       const response = await fetch("/api/ai/sales-assistant", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           taskType,
           lead: selectedLeadForAi,
@@ -193,11 +218,29 @@ export default function CrmWorkspaceModal({ isOpen, onClose, onOpenPricing = nul
       });
 
       const data = await response.json();
+
+      if (response.status === 429 || data.error === "QUOTA_EXCEEDED") {
+        if (data.quota) setQuota(data.quota);
+        setAiResult(`⚠️ ${data.message || "Batas kuota harian AI Anda telah tercapai di server."}`);
+        if (onOpenPricing) {
+          setTimeout(() => {
+            if (confirm("Batas kuota server tercapai. Buka menu upgrade paket langganan?")) {
+              onOpenPricing();
+            }
+          }, 400);
+        }
+        return;
+      }
+
       if (data.success) {
         setAiResult(data.result);
         setAiProviderInfo(data.provider || "Ekalaya Grounding Engine");
-        const updatedQuota = incrementQuotaUsage();
-        if (updatedQuota) setQuota(updatedQuota);
+        if (data.quota) {
+          setQuota(data.quota);
+        } else {
+          const updatedQuota = incrementQuotaUsage();
+          if (updatedQuota) setQuota(updatedQuota);
+        }
       } else {
         setAiResult("Gagal mendapatkan respons AI: " + (data.error || "Terjadi kesalahan."));
       }

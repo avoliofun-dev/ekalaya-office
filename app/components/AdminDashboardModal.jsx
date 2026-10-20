@@ -67,6 +67,37 @@ export default function AdminDashboardModal({ isOpen, onClose, currentUser }) {
             .then((data) => {
               if (isMounted && data?.isOwner) {
                 setServerVerified(true);
+                // Tarik data organisasi langsung dari Supabase untuk Owner terverifikasi
+                supabase.from("leads").select("*").then(({ data: dbLeads, error: errLeads }) => {
+                  if (isMounted && !errLeads && Array.isArray(dbLeads) && dbLeads.length > 0) {
+                    setLeads(
+                      dbLeads.map((l) => ({
+                        id: l.id,
+                        name: l.name,
+                        company: l.company,
+                        status: l.status,
+                        estimatedValue: Number(l.estimated_value) || 0,
+                        phone: l.phone,
+                        notes: l.notes,
+                      }))
+                    );
+                  }
+                });
+                supabase.from("transactions").select("*").then(({ data: dbTx, error: errTx }) => {
+                  if (isMounted && !errTx && Array.isArray(dbTx) && dbTx.length > 0) {
+                    setTransactions(
+                      dbTx.map((t) => ({
+                        orderId: t.order_id,
+                        planId: t.plan_id,
+                        planName: t.plan_name,
+                        amount: Number(t.amount) || 0,
+                        status: t.status,
+                        paymentMethod: t.payment_method,
+                        timestamp: t.created_at,
+                      }))
+                    );
+                  }
+                });
               }
             })
             .catch(() => {});
